@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from tkinter import messagebox as mb
 from orm_db import sqlDB
-from retail_package import print_comand,qrGenerator,QR_reader
+from retail_package import print_comand
 from tkinter import filedialog as fd
 import os
 from functools import partial
@@ -134,16 +134,6 @@ def change_color_widget(widget, bg, fg='black'):
     widget.config(fg=fg)
 
 
-def handelPrintQR(widget, falg_name):
-    if text_of_print_qr_btn.get() == 'Print_QR: Off':
-        text_of_print_qr_btn.set('Print_QR: ON')
-        change_flag(qrFlag_print_IntVar, 1)
-        change_color_widget(widget, bg='green')
-    else:
-        text_of_print_qr_btn.set('Print_QR: Off')
-        change_flag(qrFlag_print_IntVar, 0)
-        change_color_widget(widget, bg='red')
-
 
 def update_storage():
     update_win = create_top_window(title='Update manager', geometry='260x100+300+45')
@@ -196,8 +186,6 @@ def update_by_csvORxml(fileType_input):
                 mb.showerror(title='Format Error', message='Format of file dose not match with DB format')
                 return
 
-def admin():
-    pass
 
 # '-----------------------setup------------------------------'
 sqlDB.tabel_maker4('sunridge', 'sinafootwear', 'Category VARCHAR(60)', 'seller VARCHAR(60)', 'name_of_item VARCHAR(60)',
@@ -205,10 +193,6 @@ sqlDB.tabel_maker4('sunridge', 'sinafootwear', 'Category VARCHAR(60)', 'seller V
 sqlDB.tabel_maker4('employees', 'sinafootwear', 'seller VARCHAR(60)')
 sqlDB.tabel_maker4('product', 'sinafootwear', 'Category VARCHAR(60)')
 
-# sqlDB.tabel_maker4('sunridge_storage', 'sinafootwear', 'Category VARCHAR(60)', 'Name_of_item VARCHAR(60)',
-#                 'Unit_price integer', 'Color VARCHAR(60)','Size VARCHAR(10)','Quantity Integer')
-#
-# sqlDB.tabel_maker4('product_tag', 'sinafootwear','Tag VARCHAR(60)')
 # '-----------------------create main window------------------------------'
 window = create_top_window(title='Receipt', geometry='710x600+300+45', flag_topLevel=False)
 # '-------------------------------initialization---------------------------'
@@ -252,8 +236,6 @@ menu_but2, menu_seller = create_menu_drop_down(fram1, {'Add/Delete': lambda: add
                                                text='Seller', column=1)
 
 # '-------------------------------buttons---------------------------'
-Button(fram1, text='Admin', background='red', foreground='white', font=('ariyal', 11),
-             command=lambda: admin()).grid(row=0, column=0)
 btn = Button(fram1, text='Enter item', background='blue', foreground='white', font=('ariyal', 11),
              command=lambda: record_data_to_short_memory())
 btn.grid(row=0, column=5)
@@ -274,19 +256,11 @@ btn6.grid(row=0, column=3)
 btn7 = Button(fram_BOTTOM, text='Update storage', background='navy blue', fg='white', font=('ariyal', 11),
               command=lambda: update_storage())
 btn7.grid(row=0, column=4)
-qr_btn = Button(fram1, textvariable=text_of_print_qr_btn, background='red', font=('ariyal', 11),
-                command=lambda: handelPrintQR(qr_btn, qrFlag_print_IntVar))
-qr_btn.grid(row=0, column=0)
 # '-------------------------------list-box--------------------------'
 list_box = Listbox(fram_mid, width=60, height=17, font=75, selectforeground='red')
 list_box.grid(row=0, column=1)
 # '-------------------------------Entries---------------------------'
 textvariable_width_list = [(ent_name_of_product, 25), (ent_price, 17), (ent_quantity, 5), (ent_seller, 15)]
-# for index_, text_var,width_ in enumerate(textvariable_width_list):
-#     if index_<3:
-#         Entry(fram2,textvariable=text_var, font=35, fg='blue',width=width_).grid(row=1, column=index_ + 1)
-#     else:
-#         Entry(fram2, textvariable=text_var, font=35, fg='blue', width=width_,state='disabled').grid(row=0, column=index_)
 
 ent = Entry(fram2, textvariable=ent_name_of_product, font=35, fg='blue', width=25)
 ent.grid(row=1, column=1)
@@ -305,9 +279,7 @@ ent5.configure(state='disabled')
 # '-------------------------------labels---------------------------'
 for index, label in enumerate(['Enter name', 'Enter price', 'Quantity']):
     Label(fram2, text=label, font=20, fg='red').grid(row=0, column=index + 1)
-# '-------------------------------text-boxs--------------------------'
-# txt2 = Text(window,width=100,height=9,state='disable')
-# txt2.place(y=250,x=25)
+
 # '-------------------------------scrollbar---------------------------'
 vertical_scr, horizontal_scr = connect_scrollbar_to_widget(fram_mid, list_box)
 
@@ -536,9 +508,6 @@ def record_data_to_short_memory():
 
             if qrFlag_print_IntVar.get() == 1:
                 try:
-                    print('predone')
-                    outputPath = qrGenerator.genrateQR(
-                        {'Name_of_product': ent_name_of_product.get(), 'Unit_price': ent2.get()})
                     print_comand.print_img(outputPath)
                     print('done')
                 except:
