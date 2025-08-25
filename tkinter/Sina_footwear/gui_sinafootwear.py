@@ -2,7 +2,7 @@ from tkinter import *
 import pandas as pd
 from datetime import datetime
 from tkinter import messagebox as mb
-from orm_db import sqlDB
+from DataBase import sqlDB
 from retail_package import print_comand
 from tkinter import filedialog as fd
 import os
