@@ -1,4 +1,4 @@
-```markdown
+
 # Sina Footwear (Retail Management GUI)
 
 A Python Tkinter application for managing a **footwear retail business**.  
