@@ -20,11 +20,11 @@ A graphical interface for managing and analyzing **qPCR (quantitative PCR) data*
 **Main Files:**
 - `qPCR_GUI.py` – main GUI application  
 - `qpcr.py` – core functions and data processing  
-
+```
 👉 See the [qPCR README](tkinter/qPCR_project/README.md) for detailed instructions.  
 
 ---
-
+```markdown
 ## 🛒 Sina Footwear Project
 A **retail management GUI** designed for footwear inventory and sales tracking.  
 
@@ -37,7 +37,7 @@ A **retail management GUI** designed for footwear inventory and sales tracking.
 - `gui_sinafootwear.py` – main GUI application  
 - `sqlDB.py` – database handler  
 - `print_comand.py` – retail operations support  
-
+```
 👉 See the [Sina Footwear README](tkinter/Sina_footwear/README.md) for detailed instructions.  
 
 ---
