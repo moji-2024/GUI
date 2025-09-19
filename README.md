@@ -7,6 +7,7 @@ Each project has its own dedicated folder with source code, dependencies, and us
 
 
 ---
+```markdown
 
 ## 🔬 qPCR Project
 A graphical interface for managing and analyzing **qPCR (quantitative PCR) data**.  
