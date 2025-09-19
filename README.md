@@ -1,6 +1,8 @@
-# GUI
- A collection of projects and examples showcasing graphical user interfaces (GUIs) created using various frameworks.
-use below code in terminal to create exe file
-pyinstaller --onefile --windowed qPCR_project/qPCR_GUI.py
-pyinstaller --onefile --windowed Sina_footwear/gui_sinafootwear.py
+# GUI Projects (Tkinter)
+
+This repository contains GUI applications built with **Python Tkinter**.  
+Each project has its own dedicated folder with source code, dependencies, and usage instructions.  
+
+---
+
 
