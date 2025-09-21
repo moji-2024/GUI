@@ -275,7 +275,7 @@ def openMeltCurvePage():
 # '-----------------------setup------------------------------'
 
 # '-----------------------create main window------------------------------'
-window = create_top_window(title='Receipt', geometry='710x600+300+45', flag_topLevel=False)
+window = create_top_window(title='qPCR Tool-kit', geometry='710x600+300+45', flag_topLevel=False)
 # '-------------------------------initialization---------------------------'
 
 # '-------------------------------frame---------------------------'
