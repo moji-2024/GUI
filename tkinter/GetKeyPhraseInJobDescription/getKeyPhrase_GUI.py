@@ -313,12 +313,23 @@ def showHelp(root,text):
     text_horizontal_scrollbar.pack(side="bottom", fill="x")
     helpText.pack(fill="both", expand=True)
     helpText.configure(state='disabled')
+def createExtractBtnIn_displayHardSkills_and_SoftSkills(root,resumeText,jobDecriptionText):
 
-def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df):
+    def ExtractText(text:str,fileName):
+        outputDIR = fd.askdirectory(title='Select Output Directory')
+        if outputDIR:
+            with open(outputDIR + '/' + fileName,'w', encoding="utf-8") as file:
+                file.write(text)
+    Button(root, text='Extract Resume',command=lambda :ExtractText(resumeText,'Selected_Resume.txt')).pack(side=TOP, anchor='nw')
+    Button(root, text='Extract Job Description',command=lambda :ExtractText(jobDecriptionText,'Selected_Job Description.txt')).pack(side=TOP, anchor='nw')
+def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,jobDecriptionText=None,extractFlag=False):
     # create win
     ComparisonWin = create_top_window(root_win=root, title='Compare your resume with Job description',
                                       geometry='800x350+400+100',
                                       width=False, height=False, GrabFlag=False)
+    if extractFlag:
+        createExtractBtnIn_displayHardSkills_and_SoftSkills(ComparisonWin,resumeText,jobDecriptionText)
+
     # create canvas & connect it to Vertical scrollbar
     ComparisonMasterFrame = CreateMasterFrameInCanavasConnected2Scrulbar_s(ComparisonWin)
     # crate Circular score indicator in ComparisonMasterFrame
@@ -333,6 +344,7 @@ def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df):
     # print tables
     printTableInWindow(hardSkillsFramInComparisonWin, hard_df, 'Hard Skills')
     printTableInWindow(softSkillsFramInComparisonWin, soft_df, 'Soft Skills')
+
 def openSelectedFromListBoxWidget(event,ListBoxWidget):
     if ListBoxWidget.get(0, END):
         cursorSelected = ListBoxWidget.curselection()
@@ -345,12 +357,14 @@ def EnterPortionResultsInListBox(root,results):
         IntSelected = openSelectedFromListBoxWidget(event,ResListBox)
         if IntSelected:
             index = IntSelected[0]
+            resumeText = res[index][allFields.index('Resume')]
+            jobDecriptionText = res[index][allFields.index('jobDescription')]
             score = res[index][allFields.index('Score')]
             hard_SkillsJson = res[index][allFields.index('HardSkillTable')]
             soft_SkillsJson = res[index][allFields.index('SoftSkillTable')]
             SoftSkillTable = find_keywords_in_job_description.pd.read_json(soft_SkillsJson)
             hardSkillTable = find_keywords_in_job_description.pd.read_json(hard_SkillsJson)
-            displayHardSkills_and_SoftSkills(root,score,hardSkillTable,SoftSkillTable)
+            displayHardSkills_and_SoftSkills(root,score,hardSkillTable,SoftSkillTable,resumeText,jobDecriptionText,extractFlag=True)
         else:
             mb.showerror('IntSelected Error','App can not find cursor Selected from ListBox')
 
