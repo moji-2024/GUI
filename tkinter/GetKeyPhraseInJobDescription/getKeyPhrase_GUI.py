@@ -38,15 +38,6 @@ def create_menu_drop_down(window_, dictionary, row=0, column=0, text='text', fg=
     return menu_button, menu_widget
 
 
-def delete_menu_command_by_label(menu_, label_to_delete):
-    for index in range(1, menu_.index('end')):
-        try:
-            label = menu_.entrycget(index, 'label')
-            if label == label_to_delete:
-                menu_.delete(index, index + 1)
-                return 'done'
-        except:
-            pass
 
 
 def create_top_window(root_win=None, title='Enter Name', geometry='300x50+400+100', width=False, height=False,
@@ -298,7 +289,7 @@ def get_result_by_searchQuery_from_Entries(listEntries,containFlagBool,list_labe
                 else:
                     dictColVal[list_labels[ind]] = entryContent
             except ValueError:
-                mb.showerror('Syntax Error','Style of entries is not expected')
+                mb.showerror('Syntax Error','Style of entries is not expected; Something in get_result_by_searchQuery_from_Entries is wrong')
     if dictColVal:
         res = sqlDB.search(
             'JobInfo',
@@ -456,7 +447,7 @@ def SearchWinPage():
             # destroy previous window
             root.destroy()
         except:
-            print('value error')
+            mb.showerror('value error','Something in SearchResultPage function is wrong')
     containFlagBool = BooleanVar()
     list_labels = ['ID', 'JobTitle', 'PositionType', 'CompanyName','Score']
     try:
@@ -493,9 +484,6 @@ def SearchWinPage():
         mb.showerror('Load Error','Uniques.json is broken or not exist')
 
 def UploadTextFile(TextWidgetName):
-    print(TextWidgetName)
-    print(globals().keys())
-    print(globals()[TextWidgetName])
     TextWidget = globals()[TextWidgetName]
     file_path = fd.askopenfilename(
         title="Select a text file",
