@@ -6,7 +6,7 @@ from functools import partial
 import find_keywords_in_job_description
 import ast
 import json
-from orm_db import sqlDB
+from SQL_DataBase import sqlDB
 from datetime import datetime
 
 
@@ -150,21 +150,32 @@ def CreateMasterFrameInCanavasConnected2Scrulbar_s(root, bothScr=FALSE):
     canvas.create_window((0, 0), window=masterFrame, anchor="nw")
 
     # 3. Update scrollable area when frame changes size
-    def update_scrollregion(event):
+    def update_scrollbarRegion(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
 
-    masterFrame.bind("<Configure>", update_scrollregion)
+    masterFrame.bind("<Configure>", update_scrollbarRegion)
     return masterFrame
 
 
 def printTableInWindow(root, table_df, labelName: str):
     Label(root, text=labelName, font=('arial ', 17)).pack(side=TOP)
-    # Create Treeview with DataFrame columns
+    # Create a style
+    style = ttk.Style(root)
+
+    # Change font of all Treeviews
+    style.configure("Treeview", font=("Helvetica", 13,))
+
+    # Change font of the headings
+    style.configure("Treeview.Heading", font=("Helvetica", 14, "bold"))    # Create Treeview with DataFrame columns
     tree = ttk.Treeview(root, columns=list(table_df.columns), show="headings")
     # Define headings
-    for col in table_df.columns:
+    colWidths = [170,110,160,110]
+    for i,col in enumerate(table_df.columns):
         tree.heading(col, text=col)
-        tree.column(col, width=120, anchor="center")
+        try:
+            tree.column(col, width=colWidths[i], anchor="center")
+        except IndexError:
+            tree.column(col, width=145, anchor="center")
     # Insert rows from DataFrame
     for sampleName, row in table_df.iterrows():
         tree.insert("", END, values=list(row))
@@ -315,7 +326,7 @@ def showHelp(root,text):
 def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df):
     # create win
     ComparisonWin = create_top_window(root_win=root, title='Compare your resume with Job description',
-                                      geometry='700x350+400+100',
+                                      geometry='800x350+400+100',
                                       width=False, height=False, GrabFlag=False)
     # create canvas & connect it to Vertical scrollbar
     ComparisonMasterFrame = CreateMasterFrameInCanavasConnected2Scrulbar_s(ComparisonWin)
@@ -331,14 +342,30 @@ def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df):
     # print tables
     printTableInWindow(hardSkillsFramInComparisonWin, hard_df, 'Hard Skills')
     printTableInWindow(softSkillsFramInComparisonWin, soft_df, 'Soft Skills')
-
-def EnterResultsInListBox(root,results):
+def openSelectedFromListBoxWidget(event,ListBoxWidget):
+    if ListBoxWidget.get(0, END):
+        cursorSelected = ListBoxWidget.curselection()
+    return cursorSelected
+def EnterPortionResultsInListBox(root,results):
     previewFields = ['id_', 'Score', 'SubmitTime', 'JobTitle', 'PositionType', 'CompanyName']
-    allFields = ['id_', 'SoftSkillTable', 'HardSkillTable', 'Score', 'Resume', 'jobDescription', 'SubmitTime', 'JobTitle', 'PositionType', 'CompanyName']
+    allFields = ['id_', 'SoftSkillTable', 'HardSkillTable', 'Score', 'Resume', 'jobDescription', 'SubmitTime',
+                 'JobTitle', 'PositionType', 'CompanyName']
+    def handleSelected(event,res,ResListBox):
+        IntSelected = openSelectedFromListBoxWidget(event,ResListBox)
+        if IntSelected:
+            index = IntSelected[0]
+            score = res[index][allFields.index('Score')]
+            hard_SkillsJson = res[index][allFields.index('HardSkillTable')]
+            soft_SkillsJson = res[index][allFields.index('SoftSkillTable')]
+            SoftSkillTable = find_keywords_in_job_description.pd.read_json(soft_SkillsJson)
+            hardSkillTable = find_keywords_in_job_description.pd.read_json(hard_SkillsJson)
+            displayHardSkills_and_SoftSkills(root,score,hardSkillTable,SoftSkillTable)
+        else:
+            mb.showerror('IntSelected Error','App can not find cursor Selected from ListBox')
+
     resultIndexes = [allFields.index(ele) for ele in previewFields]
     resultWin = create_top_window(root.master, title='Search', geometry='', GrabFlag=False)
-    # destroy previous window
-    ResListBox = Listbox(resultWin, width=60, height=17, font=75, selectforeground='red')
+    ResListBox = Listbox(resultWin, width=95, height=15, font=75, selectforeground='red')
     ResListBoxVertical_scrollbar, ResListBoxHorizontal_scrollbar = connect_scrollbar_to_widget(resultWin, ResListBox,
                                                                                      row_scr_vertical=None,
                                                                                      row_scr_horizontal=None,
@@ -346,13 +373,13 @@ def EnterResultsInListBox(root,results):
     ResListBoxVertical_scrollbar.pack(side="right", fill="y")
     ResListBoxHorizontal_scrollbar.pack(side="bottom", fill="x")
     ResListBox.pack()
-    ResListBox.insert(END,[ele + ', ' for ele in previewFields])
     for res in results[0]:
-        ResListBox.insert(END,[str(res[i]) + ', ' for i in resultIndexes])
+        ResListBox.insert(END,', '.join([f'{allFields[i]}: {res[i]}' for i in resultIndexes]))
+    ResListBox.bind('<<ListboxSelect>>',lambda event: handleSelected(event,results[0],ResListBox))
 # '-------------------------------main functions---------------------------'
 def scan():
     # get date & time
-    DateTimeNow = datetime.now()
+    DateTimeNow = datetime.now().strftime("%y-%m-%d %H:%M:%S")
     # get texts content
     resumeText = resumeTextWidget.get(0.0, END)
     jobDescriptionText = jobDescriptionTextWidget.get(0.0, END)
@@ -389,7 +416,7 @@ def scan():
         Write_Or_UpdatejsonUniqueFileds(dictFieldValues)
     else:
         mb.showwarning('Empty Text Area', 'Both resume and Job descriptions must be filled out')
-def Search():
+def SearchWinPage():
     HELP_TEXT = """
     🔍 How to Use the Search Tool
 
@@ -422,25 +449,12 @@ def Search():
            * Operators → Age__operator=(">=", 30)
     """
 
-    def searchInDB(root,listEntries):
+    def SearchResultPage(root,listEntries):
         try:
             results, dictColVal = get_result_by_searchQuery_from_Entries(listEntries, containFlagBool, list_labels)
-            EnterResultsInListBox(root, results)
-
+            EnterPortionResultsInListBox(root.master, results)
+            # destroy previous window
             root.destroy()
-            print(root.master)
-            print(dictColVal)
-            print(results)
-            print(results[0])
-            print('res[1]',results[1])
-            print(results[0][0])
-            print('res[0][1]',results[0][1])
-            print('res[0][0][0]',results[0][0][0])
-            print(results[0][0][1])
-            print(type(results[0][0][1]))
-            print(results[0][0][2])
-            print(find_keywords_in_job_description.pd.read_json(results[0][0][1]))
-            SoftSkillTable = find_keywords_in_job_description.pd.read_json(results[0][0][1])
         except:
             print('value error')
     containFlagBool = BooleanVar()
@@ -462,7 +476,7 @@ def Search():
                text='Search',
                bg='white',
                fg='Black',
-               command=lambda: searchInDB(searchWin,EntriesListInSearchWin)).grid(row=biggistRowUntilNow, column=0)
+               command=lambda: SearchResultPage(searchWin,EntriesListInSearchWin)).grid(row=biggistRowUntilNow, column=0)
         ContainBtn =Button(searchWin,
                text='ContainFlag: inactive',
                bg='white',
@@ -478,6 +492,33 @@ def Search():
     except:
         mb.showerror('Load Error','Uniques.json is broken or not exist')
 
+def UploadTextFile(TextWidgetName):
+    print(TextWidgetName)
+    print(globals().keys())
+    print(globals()[TextWidgetName])
+    TextWidget = globals()[TextWidgetName]
+    file_path = fd.askopenfilename(
+        title="Select a text file",
+        filetypes=[
+            ("Text files", "*.txt"),
+            ("Log files", "*.log"),
+            ("Markdown", "*.md"),
+            ("reStructuredText", "*.rst"),
+            ("CSV files", "*.csv"),
+            ("TSV files", "*.tsv"),
+            ("JSON files", "*.json"),
+            ("YAML files", ("*.yaml", "*.yml")),
+            ("XML/HTML files", ("*.xml", "*.html", "*.htm")),
+            ("INI files", "*.ini"),
+            ("TOML files", "*.toml"),
+            ("Env files", "*.env"),
+        ]
+    )
+    TextWidget.delete(0.0,END)
+    if file_path:
+        with open(file_path) as file:
+            content = file.read()
+            TextWidget.insert(0.0,content)
 
 # '-----------------------setup------------------------------'
 with open("jsonDataBase/hard_Skills.json", "r") as f:
@@ -510,7 +551,7 @@ BottomFramInRootWin.pack(side=TOP)
 
 BottomBottomFramInRootWin = Frame(MainRootWin, bg='gray')
 BottomBottomFramInRootWin.pack(side=TOP)
-# two frams for middel part of MainRootWin
+# two frames for middel part of MainRootWin
 LeftMiddelFramInRootWin = Frame(MiddelFramInRootWin, bg='gray')
 LeftMiddelFramInRootWin.grid(row=0, column=0, padx=2)
 RightMiddelFramInRootWin = Frame(MiddelFramInRootWin, bg='gray')
@@ -521,7 +562,7 @@ RightMiddelFramInRootWin.grid(row=0, column=1, padx=2)
 
 # '-------------------------------memu---------------------------'
 Functions_menu_but, menu_Functions = create_menu_drop_down(TopFramInRootWin,
-                                                        {'Search': (Search,), },
+                                                        {'Search': (SearchWinPage,), },
                                                         text='Functions', column=0)
 
 # '-------------------------------buttons---------------------------'
@@ -536,9 +577,9 @@ EntriesListInBottomBottomFramInRootWin = createLabelsEntriesScrulbarsIn_a_page(
 ['','Entry-Level',''],startGridRow=0)
 
 # '-------------------------------text-boxs--------------------------'
-resumeTextWidget = createTextAreaIn_a_RootWithLabel_and_button(LeftMiddelFramInRootWin, 'CV', 'Upload', print, )
+resumeTextWidget = createTextAreaIn_a_RootWithLabel_and_button(LeftMiddelFramInRootWin, 'CV', 'Upload', UploadTextFile,'resumeTextWidget' )
 jobDescriptionTextWidget = createTextAreaIn_a_RootWithLabel_and_button(RightMiddelFramInRootWin, 'Job Description',
-                                                                       'Upload', print, )
+                                                                       'Upload', UploadTextFile, 'jobDescriptionTextWidget')
 # '-------------------------------scrollbars---------------------------'
 
 
