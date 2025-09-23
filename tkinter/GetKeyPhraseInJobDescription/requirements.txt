@@ -1,1 +1,3 @@
-nltk
+nltk==3.9.1
+pandas==2.2.2
+pyinstaller==6.11.1
