@@ -25,4 +25,7 @@ This helps identify missing or matching skills for better resume tailoring.
 ## 🚀 How to Run
 1. Install dependencies:
    ```bash
+   cd tkinter/GetKeyPhraseInJobDescription
    pip install -r requirements.txt
+   pyinstaller --onedir --windowed --add-data "jsonDataBase;GetKeyPhraseInJobDescription/jsonDataBase" getKeyPhrase_GUI.py
+
