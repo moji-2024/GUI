@@ -8,8 +8,30 @@ import ast
 import json
 from SQL_DataBase import sqlDB
 from datetime import datetime
+import os, sys
+# '-------------------------------building function for handle paths in .exe file---------------------------'
 
+def resource_path(relative_path: str) -> str:
+    # PyInstaller sets sys.frozen = True when your script is running
+    # inside a bundled app (both --onefile and --onedir).
+    if getattr(sys, 'frozen', False):
 
+        # If it's --onefile, PyInstaller extracts everything into a
+        # random temp folder (_MEI12345) and sets sys._MEIPASS.
+        # If it's --onedir, there is no _MEIPASS, so we fall back to
+        # the folder where the exe lives (sys.executable).
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+
+    else:
+        # If you're just running the script normally (not frozen),
+        # use the directory where your .py file is located.
+        base_path = os.path.dirname(os.path.abspath('.'))
+
+    # Build a full absolute path to your resource file
+    return os.path.join(base_path, relative_path)
+JsonDataBasePath = resource_path('GetKeyPhraseInJobDescription/jsonDataBase')
+print(JsonDataBasePath)
+# print(__file__)
 # '-------------------------------building functions---------------------------'
 def get_all_children(widget):
     children = widget.winfo_children()
@@ -238,7 +260,7 @@ def create_menuBtns_in_frount_of_EntryWidgets(root,entrywidgets:list,menueBtnTex
                               dictionary=dictKeyFuncs)
 def Write_Or_UpdatejsonUniqueFileds(dictFieldValues:dict):
     try:
-        with open("jsonDataBase/Uniques.json", "r") as f:
+        with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
             dictUniquefields = json.load(f)
         for field,value in dictFieldValues.items():
             if value not in dictUniquefields[field]:
@@ -247,7 +269,7 @@ def Write_Or_UpdatejsonUniqueFileds(dictFieldValues:dict):
         dictUniquefields = dict()
         for field,value in dictFieldValues.items():
             dictUniquefields[field] = [value,]
-    with open("jsonDataBase/Uniques.json", "w") as f:
+    with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "w") as f:
         json.dump(dictUniquefields, f, indent=4)
 
 def changeOutputFlag(outputFlagBool,widget,FalseText,TrueText):
@@ -260,23 +282,19 @@ def changeOutputFlag(outputFlagBool,widget,FalseText,TrueText):
 
 
 def convertEntryStr2PythonObj(STR):
-    def checkOneBracketMatch_or_notAtAll(STR):
-        if (STR.count('[') == 1) and (STR.count(']') == 1):
-            if (STR[0] == '[') and (STR[-1] == ']'):
-                return 'BracketMatch'
-            return False
-        elif (STR.count('[') == 0) and (STR.count(']') == 0):
-            return 'UnBracket'
-        else:
-            return False
-    StrChecked = checkOneBracketMatch_or_notAtAll(STR)
-    if StrChecked:
-        if StrChecked == 'BracketMatch':
+    if ('[' in STR) or ('(' in STR):
+        try:
             return ast.literal_eval(STR)
-        else:
+        except:
             return STR
     else:
-        raise ValueError
+        return STR
+
+def check_ComparativeOperatorInSTR(tupelofvalues):
+    for Operator in ('<', '>', '<=', '>=', '='):
+        if Operator in tupelofvalues:
+            return True
+    return False
 def get_result_by_searchQuery_from_Entries(listEntries,containFlagBool,list_labels):
     dictColVal = {}
     for ind, entry in enumerate(listEntries):
@@ -284,10 +302,14 @@ def get_result_by_searchQuery_from_Entries(listEntries,containFlagBool,list_labe
         if (current_fg == 'Black') and (entry.get() != ''):
             try:
                 entryContent = convertEntryStr2PythonObj(entry.get())
-                if containFlagBool:
+                if containFlagBool.get():
                     dictColVal[f'{list_labels[ind]}__contains'] = entryContent
                 else:
-                    dictColVal[list_labels[ind]] = entryContent
+                    HasOperator = check_ComparativeOperatorInSTR(entryContent)
+                    if HasOperator:
+                        dictColVal[f'{list_labels[ind]}__operator'] = entryContent
+                    else:
+                        dictColVal[list_labels[ind]] = entryContent
             except ValueError:
                 mb.showerror('Syntax Error','Style of entries is not expected; Something in get_result_by_searchQuery_from_Entries is wrong')
     if dictColVal:
@@ -446,26 +468,27 @@ def SearchWinPage():
 
     5) Search Features
        Depending on what you type in the entries, you can perform:
-           * Exact match → Role="senior"
-           * Multiple exact matches → Role="senior", Department="IT"
+           * Exact match → PositionType="senior"
+           * Multiple exact matches → PositionType="senior", CompanyName="IT"
            * And conditions → return result if Role="senior", and Department="HR" == True
-           * IN clause → Role=["Entry-Level", "senior"]
-           * Contains → Role__contains="sen"
-           * Operators → Age__operator=(">=", 30)
+           * IN clause → PositionType=["Entry-Level", "senior"]
+           * Contains → PositionType__contains="sen"
+           * Operators → Score__operator=(">=", 30)
     """
 
     def SearchResultPage(root,listEntries):
         try:
             results, dictColVal = get_result_by_searchQuery_from_Entries(listEntries, containFlagBool, list_labels)
-            EnterPortionResultsInListBox(root.master, results)
-            # destroy previous window
-            root.destroy()
+            if results[0]:
+                EnterPortionResultsInListBox(root.master, results)
+                # destroy previous window
+                root.destroy()
         except:
             mb.showerror('value error','Something in SearchResultPage function is wrong')
     containFlagBool = BooleanVar()
-    list_labels = ['ID', 'JobTitle', 'PositionType', 'CompanyName','Score']
+    list_labels = ['id_', 'JobTitle', 'PositionType', 'CompanyName','Score']
     try:
-        with open("jsonDataBase/Uniques.json", "r") as f:
+        with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
             dictUniquefields = json.load(f)
         # create window, labels_Entries, Menus, Buttons
         searchWin = create_top_window(MainRootWin, title='Search', geometry='')
@@ -473,7 +496,7 @@ def SearchWinPage():
         EntriesListInSearchWin = createLabelsEntriesScrulbarsIn_a_page(
             searchWin,
             list_labels,
-            ['Integer', 'Data analytics', 'Entry-Level', 'Npower','>= 55'], startGridRow=0)
+            ['Integer', 'Data analytics', "['Entry-Level','Senior']", 'Npower',"('>=', 55)"], startGridRow=0)
         create_menuBtns_in_frount_of_EntryWidgets(searchWin, EntriesListInSearchWin[1:-1], list_labels[1:-1],
                                                   dictUniquefields)
         _, biggistRowUntilNow = getBiggestRow_and_colIndex(searchWin)
@@ -523,9 +546,9 @@ def UploadTextFile(TextWidgetName):
             TextWidget.insert(0.0,content)
 
 # '-----------------------setup------------------------------'
-with open("jsonDataBase/hard_Skills.json", "r") as f:
+with open(os.path.join(JsonDataBasePath, 'hard_Skills.json'), "r") as f:
     hard_Skills = json.load(f)
-with open("jsonDataBase/soft_Skills.json", "r") as f:
+with open(os.path.join(JsonDataBasePath, 'soft_Skills.json'), "r") as f:
     soft_Skills = json.load(f)
 sqlDB.table_maker(
     'JobInfo',
