@@ -13,5 +13,10 @@ This tool helps researchers process qPCR results with reference genes, calculate
 - Export results for further analysis
 
 ---
-
+## 🚀 How to Run
+1. Install dependencies:
+   ```bash
+   cd tkinter/qPCR_project
+   pip install -r requirements.txt
+   pyinstaller --onedir --windowed qPCR_GUI.py
 
