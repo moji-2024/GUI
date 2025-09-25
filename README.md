@@ -1,10 +1,21 @@
 # GUI Projects (Tkinter)
 
 This repository contains GUI applications built with **Python Tkinter**.  
-Each project has its own dedicated folder with source code, dependencies, and usage instructions.  
+Each project is self-contained, with its own source code, requirements,usage instructions, and documentation.
 
 ---
 
+## 📂 Projects Overview
+---
+### 🔑 Get Key Phrases in Job Descriptions
+A text-mining tool with a GUI that extracts **hard and soft skills** from job descriptions.  
+
+**Features:**
+- Parse job descriptions for key phrases  
+- Store and manage skills in **JSON** and **SQL databases**  
+- Simple GUI for HR or personal use  
+
+👉 See the [GetKeyPhrase README](tkinter/GetKeyPhraseInJobDescription/README.md) for usage details.  
 
 ---
 ```markdown
