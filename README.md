@@ -8,6 +8,7 @@ Each project is self-contained, with its own source code, requirements,usage ins
 ## 📂 Projects Overview
 ---
 ###🔑 Get Key Phrases in Job Descriptions
+---
 A text-mining tool with a GUI that extracts **hard and soft skills** from job descriptions.  
 
 **Features:**
@@ -15,10 +16,10 @@ A text-mining tool with a GUI that extracts **hard and soft skills** from job de
 - Store and manage skills in **JSON** and **SQL databases**  
 - Simple GUI for HR or personal use  
 👉 See the [GetKeyPhrase README](tkinter/GetKeyPhraseInJobDescription/README.md) for usage details.  
-
 ---
 
 ###🔬 qPCR Project
+---
 A graphical interface for managing and analyzing **qPCR (quantitative PCR) data**.  
 
 **Features:**
@@ -30,9 +31,10 @@ A graphical interface for managing and analyzing **qPCR (quantitative PCR) data*
 - `qPCR_GUI.py` – main GUI application  
 - `qpcr.py` – core functions and data processing  
 👉 See the [qPCR README](tkinter/qPCR_project/README.md) for detailed instructions.  
-
 ---
+
 ###🛒 Sina Footwear Project
+---
 A **retail management GUI** designed for footwear inventory and sales tracking.  
 
 **Features:**
