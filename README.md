@@ -6,7 +6,7 @@ Each project is self-contained, with its own source code, requirements,usage ins
 ---
 
 ## 📂 Projects Overview
-###🔑 Get Key Phrases in Job Descriptions
+##🔑 Get Key Phrases in Job Descriptions
 ---
 A text-mining tool with a GUI that extracts **hard and soft skills** from job descriptions.  
 
