@@ -30,7 +30,7 @@ def resource_path(relative_path: str) -> str:
     # Build a full absolute path to your resource file
     return os.path.join(base_path, relative_path)
 JsonDataBasePath = resource_path('GetKeyPhraseInJobDescription/jsonDataBase')
-print(JsonDataBasePath)
+# print(JsonDataBasePath)
 # print(__file__)
 # '-------------------------------building functions---------------------------'
 def get_all_children(widget):
@@ -237,7 +237,7 @@ def draw_score(canvas, x, y, radius, score, max_score=100):
                        outline="", fill="white")
 
     # Add text
-    canvas.create_text(x, y, text=f"{score}/{max_score}", font=("Arial", 14, "bold"))
+    canvas.create_text(x, y, text=f"%{score}", font=("Arial", 14, "bold"))
 def getRow_and_Col_from_widget(Widget):
     return Widget.grid_info()["column"], Widget.grid_info()["row"]
 def getBiggestRow_and_colIndex(root,):
@@ -357,7 +357,7 @@ def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,
     # crate Circular score indicator in ComparisonMasterFrame
     OvalCanvas = Canvas(ComparisonMasterFrame, width=150, height=150, bg="white")
     OvalCanvas.pack(side=LEFT)
-    draw_score(OvalCanvas, 75, 75, 60, score=score * 100)
+    draw_score(OvalCanvas, 75, 75, 60, score=score)
     # put Frames in canvas
     hardSkillsFramInComparisonWin = Frame(ComparisonMasterFrame, bg='gray')
     hardSkillsFramInComparisonWin.pack(side=TOP)
@@ -474,6 +474,7 @@ def SearchWinPage():
            * IN clause → PositionType=["Entry-Level", "senior"]
            * Contains → PositionType__contains="sen"
            * Operators → Score__operator=(">=", 30)
+    Note: Make do not click containFlag Button when you want Search by score value or id_ value-s
     """
 
     def SearchResultPage(root,listEntries):

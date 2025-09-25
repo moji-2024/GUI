@@ -13,10 +13,6 @@ def find_keyword(key, list_skills):
 
 
 
-
-
-
-
 def find_moreThanOneWordINKeywordPhrase(listKeywords):
   return [phrase for phrase in listKeywords if len(phrase.split()) > 1]
 def find_OneWordINKeywordPhrase(listKeywords):
@@ -84,7 +80,7 @@ def find_keywordFrequency(resume, job_description,soft_skills,hard_Skills):
     df_hardskills['Score'] = df_hardskills.apply(lambda row: 1 - (
                 abs(min(row['Resume'], row['Job Description']) - row['Job Description']) / row['Job Description']),
                                                  axis=1)
-    final_score = round((df_softskills['Score'].mean() + df_hardskills['Score'].mean()) / 2, 2)
+    final_score = round(((df_softskills['Score'].mean() + df_hardskills['Score'].mean()) / 2) * 100, 2)
     return df_softskills.sort_values(by="Job Description", ascending=False), df_hardskills.sort_values(
         by="Job Description", ascending=False), final_score
 
