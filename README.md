@@ -50,7 +50,7 @@ A **retail management GUI** designed for footwear inventory and sales tracking.
 
 ## ⚙️ Requirements
 Each project includes its own `requirements.txt`.
-```
+
 Install dependencies before running:  
 
 ```bash
