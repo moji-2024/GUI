@@ -20,7 +20,7 @@ A text-mining tool with a GUI that extracts **hard and soft skills** from job de
 ---
 ```markdown
 
-## 🔬 qPCR Project
+### 🔬 qPCR Project
 A graphical interface for managing and analyzing **qPCR (quantitative PCR) data**.  
 
 **Features:**
