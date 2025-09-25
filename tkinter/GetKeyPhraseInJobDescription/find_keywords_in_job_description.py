@@ -17,6 +17,28 @@ def find_keyword(key, list_skills):
 
 
 
+def find_moreThanOneWordINKeywordPhrase(listKeywords):
+  return [phrase for phrase in listKeywords if len(phrase.split()) > 1]
+def find_OneWordINKeywordPhrase(listKeywords):
+  return  [phrase for phrase in listKeywords if len(phrase.split()) == 1]
+def remove_repeatedPhraseWithSameMeaning(listKeywords):
+  finalList = listKeywords.copy()
+  moreThanOneWordINKeywordPhrase = find_moreThanOneWordINKeywordPhrase(listKeywords)
+  OneWordINKeywordPhrase = find_OneWordINKeywordPhrase(listKeywords)
+  for phrase in moreThanOneWordINKeywordPhrase:
+    stemFirstWord = stemmer.stem(phrase.split()[0])
+    for word in OneWordINKeywordPhrase:
+      stemSingleWord = stemmer.stem(word)
+      if stemFirstWord == stemSingleWord:
+        finalList.remove(word)
+  return finalList
+def remove_keysInDictWithSameMeaning(dictKeywords):
+  listFilteredKeywords =remove_repeatedPhraseWithSameMeaning(list(dictKeywords.keys()))
+  finalDict = {}
+  for key in dictKeywords:
+    if key in listFilteredKeywords:
+      finalDict[key] = dictKeywords[key]
+  return finalDict
 def create_comparison_table(resume, job_description, skills):
     dict_resume_keywords = {}
     dict_job_description_keywords = {}
@@ -32,8 +54,9 @@ def create_comparison_table(resume, job_description, skills):
         if len(all_findings_in_job_description) > 0:
             dict_job_description_keywords[word] = len(all_findings_in_job_description)
             dict_resume_keywords[word] = len(all_findings_in_resume)
-
-    return dict_resume_keywords, dict_job_description_keywords
+    return remove_keysInDictWithSameMeaning(dict_resume_keywords), remove_keysInDictWithSameMeaning(
+        dict_job_description_keywords)
+    # return dict_resume_keywords, dict_job_description_keywords
 
 
 def find_keywordFrequency(resume, job_description,soft_skills,hard_Skills):
