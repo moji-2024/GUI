@@ -9,6 +9,8 @@ import json
 from SQL_DataBase import sqlDB
 from datetime import datetime
 import os, sys
+import PyPDF2
+from docx import Document
 # '-------------------------------building function for handle paths in .exe file---------------------------'
 
 def resource_path(relative_path: str) -> str:
@@ -261,16 +263,16 @@ def create_menuBtns_in_frount_of_EntryWidgets(root,entrywidgets:list,menueBtnTex
 def Write_Or_UpdatejsonUniqueFileds(dictFieldValues:dict):
     try:
         with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
-            dictUniquefields = json.load(f)
+            dictUniqueFields = json.load(f)
         for field,value in dictFieldValues.items():
-            if value not in dictUniquefields[field]:
-                dictUniquefields[field].append(value)
+            if value not in dictUniqueFields[field]:
+                dictUniqueFields[field].append(value)
     except:
-        dictUniquefields = dict()
+        dictUniqueFields = dict()
         for field,value in dictFieldValues.items():
-            dictUniquefields[field] = [value,]
+            dictUniqueFields[field] = [value,]
     with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "w") as f:
-        json.dump(dictUniquefields, f, indent=4)
+        json.dump(dictUniqueFields, f, indent=4)
 
 def changeOutputFlag(outputFlagBool,widget,FalseText,TrueText):
     if outputFlagBool.get() == False:
@@ -366,7 +368,8 @@ def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,
     # print tables
     printTableInWindow(hardSkillsFramInComparisonWin, hard_df, 'Hard Skills')
     printTableInWindow(softSkillsFramInComparisonWin, soft_df, 'Soft Skills')
-
+def removewhiteSpaceInListElements(lst:list[str]):
+    return [ele.replace(" ",'') for ele in lst]
 def openSelectedFromListBoxWidget(event,ListBoxWidget):
     if ListBoxWidget.get(0, END):
         cursorSelected = ListBoxWidget.curselection()
@@ -403,8 +406,12 @@ def EnterPortionResultsInListBox(root,results):
     for res in results[0]:
         ResListBox.insert(END,', '.join([f'{allFields[i]}: {res[i]}' for i in resultIndexes]))
     ResListBox.bind('<<ListboxSelect>>',lambda event: handleSelected(event,results[0],ResListBox))
+def updateJsonFile(listStrSkills:list,previosSkills:list,jsonFileName:str):
+    skillSet = [skill.strip() for skill in listStrSkills if skill not in previosSkills] + previosSkills
+    with open(os.path.join(JsonDataBasePath, jsonFileName), "w") as f:
+        json.dump(skillSet, f, indent=4)
 # '-------------------------------main functions---------------------------'
-def scan():
+def ScanPage():
     # get date & time
     DateTimeNow = datetime.now().strftime("%y-%m-%d %H:%M:%S")
     # get texts content
@@ -476,7 +483,6 @@ def SearchWinPage():
            * Operators → Score__operator=(">=", 30)
     Note: Make do not click containFlag Button when you want Search by score value or id_ value-s
     """
-
     def SearchResultPage(root,listEntries):
         try:
             results, dictColVal = get_result_by_searchQuery_from_Entries(listEntries, containFlagBool, list_labels)
@@ -487,10 +493,10 @@ def SearchWinPage():
         except:
             mb.showerror('value error','Something in SearchResultPage function is wrong')
     containFlagBool = BooleanVar()
-    list_labels = ['id_', 'JobTitle', 'PositionType', 'CompanyName','Score']
+    list_labels = ['id_', 'Job Title', 'Position Type', 'Company Name','Score']
     try:
         with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
-            dictUniquefields = json.load(f)
+            dictUniqueFields = json.load(f)
         # create window, labels_Entries, Menus, Buttons
         searchWin = create_top_window(MainRootWin, title='Search', geometry='')
 
@@ -498,8 +504,9 @@ def SearchWinPage():
             searchWin,
             list_labels,
             ['Integer', 'Data analytics', "['Entry-Level','Senior']", 'Npower',"('>=', 55)"], startGridRow=0)
-        create_menuBtns_in_frount_of_EntryWidgets(searchWin, EntriesListInSearchWin[1:-1], list_labels[1:-1],
-                                                  dictUniquefields)
+        listMenuNamesInFrontEntries = removewhiteSpaceInListElements(list_labels)
+        create_menuBtns_in_frount_of_EntryWidgets(searchWin, EntriesListInSearchWin[1:-1], listMenuNamesInFrontEntries[1:-1],
+                                                  dictUniqueFields)
         _, biggistRowUntilNow = getBiggestRow_and_colIndex(searchWin)
         Button(searchWin,
                text='Search',
@@ -519,13 +526,40 @@ def SearchWinPage():
                font=('Arial',16),
                command=lambda : showHelp(searchWin,HELP_TEXT)).grid(row=biggistRowUntilNow, column=2)
     except:
-        mb.showerror('Load Error','Uniques.json is broken or not exist')
+        mb.showerror('Load Error','Uniques.json not exist which means no data exist in database')
+def Add_SkillPage(hard_Skills:list,soft_Skills:list):
+    def add_into_json_files(LabelEntries:dict):
+        Add_SkillWin.destroy()
+        for label,entry in LabelEntries.items():
+            current_fg = entry.cget("fg")
+            if (current_fg == 'Black') and (entry.get() != ''):
+                listStrSkills = entry.get().split(',')
+                if label == 'Soft Skill-s':
+                    updateJsonFile(listStrSkills, soft_Skills, 'soft_Skills.json')
+                else:
+                    updateJsonFile(listStrSkills, hard_Skills, 'hard_Skills.json')
 
+    # create window, labels_Entries, Buttons
+    Add_SkillWin = create_top_window(MainRootWin, title='Search', geometry='',GrabFlag=False)
+    labels = ['Soft Skill-s','Hard Skill-s']
+    EntriesListInSearchWin = createLabelsEntriesScrulbarsIn_a_page(
+        Add_SkillWin,labels,
+        ['Enter one or more skill ex: skill1, skill2','Enter one or more skill ex: skill1, skill2'], startGridRow=0)
+    _, biggistRowUntilNow = getBiggestRow_and_colIndex(Add_SkillWin)
+    dictLabelEntries= {labels[i]:EntriesListInSearchWin[i] for i in range(len(EntriesListInSearchWin))}
+    Button(Add_SkillWin,
+           text='Commit',
+           bg='white',
+           fg='Black',
+           command=lambda: add_into_json_files(dictLabelEntries)).grid(row=biggistRowUntilNow, column=0)
+    return hard_Skills,soft_Skills
 def UploadTextFile(TextWidgetName):
     TextWidget = globals()[TextWidgetName]
     file_path = fd.askopenfilename(
         title="Select a text file",
         filetypes=[
+            ("Word files", "*.docx"),
+            ("PDF files", "*.pdf"),
             ("Text files", "*.txt"),
             ("Log files", "*.log"),
             ("Markdown", "*.md"),
@@ -542,8 +576,26 @@ def UploadTextFile(TextWidgetName):
     )
     TextWidget.delete(0.0,END)
     if file_path:
-        with open(file_path) as file:
-            content = file.read()
+        ext = os.path.splitext(file_path)[1]  # includes the dot, e.g. ".csv"
+        print("Extension:", ext)
+        if ext == '.pdf':
+            with open(file_path, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                content = ""
+                for page in reader.pages:
+                    content += page.extract_text()
+            TextWidget.insert(0.0,content)
+        elif ext == '.docx':
+            # Load the Word file
+            doc = Document(file_path)
+            # Extract all text
+            content = ''
+            for para in doc.paragraphs:
+                content += para.text + '\n'
+            TextWidget.insert(0.0,content)
+        else:
+            with open(file_path) as file:
+                content = file.read()
             TextWidget.insert(0.0,content)
 
 # '-----------------------setup------------------------------'
@@ -551,6 +603,9 @@ with open(os.path.join(JsonDataBasePath, 'hard_Skills.json'), "r") as f:
     hard_Skills = json.load(f)
 with open(os.path.join(JsonDataBasePath, 'soft_Skills.json'), "r") as f:
     soft_Skills = json.load(f)
+if os.path.exists(os.path.join(JsonDataBasePath, 'Uniques.json')):
+    with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
+        dictUniqueFields = json.load(f)
 sqlDB.table_maker(
     'JobInfo',
     'MojiDB',
@@ -588,20 +643,22 @@ RightMiddelFramInRootWin.grid(row=0, column=1, padx=2)
 
 # '-------------------------------memu---------------------------'
 Functions_menu_but, menu_Functions = create_menu_drop_down(TopFramInRootWin,
-                                                        {'Search': (SearchWinPage,), },
+                                                        {'Search': (SearchWinPage,),'Add Skill':(Add_SkillPage,hard_Skills,soft_Skills) },
                                                         text='Functions', column=0)
 
 # '-------------------------------buttons---------------------------'
-Button(BottomFramInRootWin, text='Scan', font=('arial', 14),bg='green', command=scan).pack(side=BOTTOM)
+Button(BottomFramInRootWin, text='Scan', font=('arial', 14),bg='green', command=ScanPage).pack(side=BOTTOM)
 
 # '-------------------------------list-box--------------------------'
 
 # '-------------------------------labels & Entries---------------------------'
+JobRelatedLabels = ['Job Title','Position Type','Company Name']
 EntriesListInBottomBottomFramInRootWin = createLabelsEntriesScrulbarsIn_a_page(
-    BottomBottomFramInRootWin,
-    ['Job Title','Position Type','Company Name'],
+    BottomBottomFramInRootWin,JobRelatedLabels,
 ['','Entry-Level',''],startGridRow=0)
-
+MenuNamesInFrontEntries = removewhiteSpaceInListElements(JobRelatedLabels)
+create_menuBtns_in_frount_of_EntryWidgets(BottomBottomFramInRootWin, EntriesListInBottomBottomFramInRootWin, MenuNamesInFrontEntries,
+                                                  dictUniqueFields)
 # '-------------------------------text-boxs--------------------------'
 resumeTextWidget = createTextAreaIn_a_RootWithLabel_and_button(LeftMiddelFramInRootWin, 'CV', 'Upload', UploadTextFile,'resumeTextWidget' )
 jobDescriptionTextWidget = createTextAreaIn_a_RootWithLabel_and_button(RightMiddelFramInRootWin, 'Job Description',
