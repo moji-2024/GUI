@@ -34,13 +34,13 @@ def return_condition_rule_from_str(column_str):
 
         Example
         -------
-        >>> return_condition_rule_from_str("name__contains")
+        >> return_condition_rule_from_str("name__contains")
         ("contains", "name")
 
-        >>> return_condition_rule_from_str("age__operator")
+        >> return_condition_rule_from_str("age__operator")
         ("operator", "age")
 
-        >>> return_condition_rule_from_str("status")
+        >> return_condition_rule_from_str("status")
         ("", "status")
     """
     condition_rule = ''
@@ -83,7 +83,7 @@ def create_query_by_colValue_relatedCol_condition(related_col='and',**col_values
 
     Example
     -------
-    >>> create_query_by_colValue_relatedCol_condition(
+    >> create_query_by_colValue_relatedCol_condition(
     ...     related_col="and",
     ...     name="Alice",
     ...     age_operator=('>', 25),
@@ -165,7 +165,15 @@ def check_table_exists(db, table_name):
     res = cursor.fetchone() is not None
     conn.close()
     return res
-
+def is_tableNotEmpty(db,table_name):
+    conn, cursor = make_connection(db)
+    cursor.execute(f"SELECT 1 FROM {table_name} LIMIT 1;")
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return True
+    else:
+        return False
 
 def update_ColNameType(db, table_name, old_colName, new_col_name, new_col_type):
     """Update a column name and/or type in a database table.
@@ -181,7 +189,7 @@ def update_ColNameType(db, table_name, old_colName, new_col_name, new_col_type):
             None
 
         Example:
-            >>> update_ColNameType("companyDB", "Employees", "job", "position", "TEXT")
+            >> update_ColNameType("companyDB", "Employees", "job", "position", "TEXT")
         """
     conn, cursor = make_connection(db)
     cursor.execute(f"ALTER TABLE {table_name} RENAME COLUMN {old_colName} TO {new_col_name};")
@@ -223,11 +231,11 @@ def table_maker(tabel_name:str, db:str, *args, strick_flag=False):
 
     Example
     -------
-    >>> table_maker("users", "my_database", "name TEXT", "age INTEGER")
+    >> table_maker("users", "my_database", "name TEXT", "age INTEGER")
     # Creates a table like:
     # CREATE TABLE IF NOT EXISTS users (id_ INTEGER PRIMARY KEY, name TEXT, age INTEGER)
 
-    >>> table_maker("logs", "my_database", strick_flag=True)
+    >> table_maker("logs", "my_database", strick_flag=True)
     # Creates a table with only an auto-increment id_ column.
     """
     conn, cursor = make_connection(db)
@@ -278,11 +286,11 @@ def insert(tabel_name, db, *args, **kwargs):
 
     Example
     -------
-    >>> insert("users", "my_database", name="Alice", age=30)
+    >> insert("users", "my_database", name="Alice", age=30)
     # Executes:
     # INSERT INTO users (name, age) VALUES (?, ?)
 
-    >>> insert("users", "my_database", "Alice", 30)
+    >> insert("users", "my_database", "Alice", 30)
     # Executes:
     # INSERT INTO users VALUES (NULL, ?, ?)
     """
@@ -337,14 +345,14 @@ def delete(table_name, db,related_col='and', **col_values):
 
         Example
         -------
-        >>> delete("Employees", "companyDB", name="Alice")
+        >> delete("Employees", "companyDB", name="Alice")
             [1]
-        >>> delete("Employees", "companyDB", age__operator=(">", 40))
+        >> delete("Employees", "companyDB", age__operator=(">", 40))
             [3, 4, 5]
-        >>> delete("users", "my_database", name="Alice")
+        >> delete("users", "my_database", name="Alice")
         # Deletes all rows where name = 'Alice' and returns their rowids.
 
-        >>> delete("users", "my_database")
+        >> delete("users", "my_database")
         # Deletes all rows in the users table and returns all rowids.
     """
     if col_values == {}:
@@ -413,7 +421,7 @@ def view(table_name, db, sort_by=None,related_col='and',filter_kind='', **col_va
 
         Example
         -------
-        >>> view("users", "my_database", sort_by="ORDER BY age DESC",
+        >> view("users", "my_database", sort_by="ORDER BY age DESC",
         ...      name="Alice", age_operator=('>', 25))
         # Executes:
         # SELECT * FROM users WHERE name = ? AND age > ? ORDER BY age DESC
@@ -463,7 +471,7 @@ def search(table_name, db,related_col='and', **col_values):
                 - columns (list of str): The column names of the table.
 
         Example:
-            >>> search("employees", "companyDB", Name__contains="John")
+            >> search("employees", "companyDB", Name__contains="John")
             ([('John Smith', 'IT'), ('Johnny Doe', 'HR')], ['Name', 'Department'])
                 Example usage:
 
@@ -499,6 +507,7 @@ def search(table_name, db,related_col='and', **col_values):
         )
         """
     where_clause, params = create_query_by_colValue_relatedCol_condition(related_col=related_col, **col_values)
+    # print(where_clause, params)
     conn, cursor = make_connection(db)
     # print(f'-- select * from {table_name} where {where_clause} ',tuple(params))
     cursor.execute(f'select * from {table_name} where {where_clause} ', tuple(params))
@@ -529,7 +538,7 @@ def update(db, table_name, condition_str, **kwargs):
 
         Example
         -------
-        >>> update("my_database", "users", "id = 5", name="Alice", age=30, email="")
+        >> update("my_database", "users", "id = 5", name="Alice", age=30, email="")
         # This will execute:
         # UPDATE users SET name = ?, age = ? WHERE id = 5
         # with parameters ("Alice", 30)

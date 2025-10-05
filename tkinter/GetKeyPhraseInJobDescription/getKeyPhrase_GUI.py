@@ -282,51 +282,68 @@ def changeOutputFlag(outputFlagBool,widget,FalseText,TrueText):
         widget.configure(fg='red',text=FalseText)
         outputFlagBool.set(False)
 
-
-def convertEntryStr2PythonObj(STR):
-    if ('[' in STR) or ('(' in STR):
-        try:
-            return ast.literal_eval(STR)
-        except:
-            return STR
-    else:
-        return STR
-
-def check_ComparativeOperatorInSTR(tupelofvalues):
-    for Operator in ('<', '>', '<=', '>=', '='):
-        if Operator in tupelofvalues:
+def check_ComparativeOperatorInTuple(listStrElements):
+    if len(listStrElements) == 2:
+        if listStrElements[0] in ('<', '>', '<=', '>=', '='):
+            float(listStrElements[1])
             return True
     return False
-def get_result_by_searchQuery_from_Entries(listEntries,containFlagBool,list_labels):
+def searchEntryValidation(label_,entry_):
+    list_labels = ['id_', 'Job Title', 'Position Type', 'Company Name', 'Employer Name', 'Score']
+    listElements = entry_.get().split(',')
+    if label_ == 'id_':
+        if all([ele.strip().isnumeric() for ele in listElements]):
+            if len(listElements) == 1:
+                return listElements[0]
+            return listElements
+        else: raise ValueError
+    elif label_ == 'Score':
+        if check_ComparativeOperatorInTuple(listElements):
+            return tuple(listElements)
+        else:
+            raise ValueError
+    else:
+        if len(listElements) == 1:
+            return listElements[0]
+        return listElements
+
+def get_result_by_searchQuery_from_Entries(listEntries,containFlagBool,Db_ColNames):
     dictColVal = {}
-    for ind, entry in enumerate(listEntries):
+    redFlag = False
+    for col, entry in zip(Db_ColNames,listEntries):
         current_fg = entry.cget("fg")
         if (current_fg == 'Black') and (entry.get() != ''):
             try:
-                entryContent = convertEntryStr2PythonObj(entry.get())
+                valuableValue = searchEntryValidation(col, entry)
                 if containFlagBool.get():
-                    dictColVal[f'{list_labels[ind]}__contains'] = entryContent
-                else:
-                    HasOperator = check_ComparativeOperatorInSTR(entryContent)
-                    if HasOperator:
-                        dictColVal[f'{list_labels[ind]}__operator'] = entryContent
+                    if type(valuableValue) == str:
+                        dictColVal[f'{col}__contains'] = valuableValue
                     else:
-                        dictColVal[list_labels[ind]] = entryContent
+                        raise ValueError
+                else:
+                    if col == 'Score':
+                        dictColVal[f'{col}__operator'] = valuableValue
+                    else:
+                        dictColVal[col] = valuableValue
             except ValueError:
+                redFlag = True
                 mb.showerror('Syntax Error','Style of entries is not expected; Something in get_result_by_searchQuery_from_Entries is wrong')
     if dictColVal:
-        res = sqlDB.search(
+        return sqlDB.search(
             'JobInfo',
             'MojiDB',
             **dictColVal
         )
-        return res, dictColVal
+    else:
+        if redFlag == False:
+            return sqlDB.view('JobInfo','MojiDB',)
 
 def showHelp(root,text):
     helpWin = create_top_window(root_win=root, title='Instruction',
                                            geometry='',
-                                           width=False, height=False, )
-    helpText = Text(helpWin, width=50, height=25, font=("Arial", 12))
+                                           width=False, height=False,GrabFlag=False )
+    helpWin.focus_set()
+    helpText = Text(helpWin, width=70, height=25, font=("Arial", 12),wrap='word')
     text = text
     helpText.insert(0.0,text)
     text_vertical_scrollbar, text_horizontal_scrollbar = connect_scrollbar_to_widget(helpWin, helpText,
@@ -337,22 +354,43 @@ def showHelp(root,text):
     text_horizontal_scrollbar.pack(side="bottom", fill="x")
     helpText.pack(fill="both", expand=True)
     helpText.configure(state='disabled')
-def createExtractBtnIn_displayHardSkills_and_SoftSkills(root,resumeText,jobDecriptionText):
-
+    helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
+def Extraction_and_deleteInformationPage(root,resumeText,jobDescriptionText,cursorListBoxSelected,DB_resultSetPrimaryKey,ResListBox):
+    # this page help to extract resume & job Description Text as well as metadata as a csv file. Also delete recoreded Data from database.
+    def ExtractMetadata():
+        DictData = {KeyValue.split(':')[0].strip(): KeyValue.split(':')[1].strip() for KeyValue in
+                    ResListBox.get(cursorListBoxSelected).split(',')}
+        outputDIR = fd.askdirectory(title='Select Output Directory')
+        if outputDIR:
+            find_keywords_in_job_description.pd.DataFrame(DictData,index=[0]).to_csv(os.path.join(outputDIR,'metaData.csv'),index=False)
+            mb.showinfo('Done')
+    def DeleteRecord():
+        ResListBox.delete(cursorListBoxSelected)
+        sqlDB.delete('JobInfo','MojiDB',id_=DB_resultSetPrimaryKey)
+        if not ResListBox.get(0,END):
+            root.master.destroy()
+        root.destroy()
     def ExtractText(text:str,fileName):
         outputDIR = fd.askdirectory(title='Select Output Directory')
         if outputDIR:
             with open(outputDIR + '/' + fileName,'w', encoding="utf-8") as file:
                 file.write(text)
+            mb.showinfo('Done')
+
+    Button(root, text='Delete Record', bg='Black', fg='Red',
+           command=lambda: DeleteRecord()).pack(side=TOP, anchor='ne')
     Button(root, text='Extract Resume',command=lambda :ExtractText(resumeText,'Selected_Resume.txt')).pack(side=TOP, anchor='nw')
-    Button(root, text='Extract Job Description',command=lambda :ExtractText(jobDecriptionText,'Selected_Job Description.txt')).pack(side=TOP, anchor='nw')
-def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,jobDecriptionText=None,extractFlag=False):
+    Button(root, text='Extract Job Description',command=lambda :ExtractText(jobDescriptionText,'Selected_Job Description.txt')).pack(side=TOP, anchor='nw')
+    Button(root, text='Extract Metadata',
+           command= ExtractMetadata).pack(side=TOP, anchor='nw')
+
+def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,jobDescriptionText=None,cursorListBoxSelected=None,DB_resultSetPrimaryKey=None,ResListBox=None,extractFlag=False):
     # create win
     ComparisonWin = create_top_window(root_win=root, title='Compare your resume with Job description',
                                       geometry='800x350+400+100',
                                       width=False, height=False, GrabFlag=False)
     if extractFlag:
-        createExtractBtnIn_displayHardSkills_and_SoftSkills(ComparisonWin,resumeText,jobDecriptionText)
+        Extraction_and_deleteInformationPage(ComparisonWin,resumeText,jobDescriptionText,cursorListBoxSelected,DB_resultSetPrimaryKey,ResListBox)
 
     # create canvas & connect it to Vertical scrollbar
     ComparisonMasterFrame = CreateMasterFrameInCanavasConnected2Scrulbar_s(ComparisonWin)
@@ -374,22 +412,25 @@ def openSelectedFromListBoxWidget(event,ListBoxWidget):
     if ListBoxWidget.get(0, END):
         cursorSelected = ListBoxWidget.curselection()
     return cursorSelected
-def EnterPortionResultsInListBox(root,results):
-    previewFields = ['id_', 'Score', 'SubmitTime', 'JobTitle', 'PositionType', 'CompanyName']
+def EnterPortionResultsDetailsInListBox(root,results):
+    previewFields = ['id_', 'Score', 'SubmitTime', 'JobTitle', 'PositionType', 'CompanyName','EmployerName']
     allFields = ['id_', 'SoftSkillTable', 'HardSkillTable', 'Score', 'Resume', 'jobDescription', 'SubmitTime',
-                 'JobTitle', 'PositionType', 'CompanyName']
+                 'JobTitle', 'PositionType', 'CompanyName','EmployerName']
     def handleSelected(event,res,ResListBox):
         IntSelected = openSelectedFromListBoxWidget(event,ResListBox)
         if IntSelected:
+            # res: [(row1),(row2),...]
             index = IntSelected[0]
+            gottenItemOfResListBox = ResListBox.get(index)
+            DB_resultSetPrimaryKey = gottenItemOfResListBox.split(',')[0].split(':')[1].strip()
             resumeText = res[index][allFields.index('Resume')]
-            jobDecriptionText = res[index][allFields.index('jobDescription')]
+            jobDescriptionText = res[index][allFields.index('jobDescription')]
             score = res[index][allFields.index('Score')]
             hard_SkillsJson = res[index][allFields.index('HardSkillTable')]
             soft_SkillsJson = res[index][allFields.index('SoftSkillTable')]
             SoftSkillTable = find_keywords_in_job_description.pd.read_json(soft_SkillsJson)
             hardSkillTable = find_keywords_in_job_description.pd.read_json(hard_SkillsJson)
-            displayHardSkills_and_SoftSkills(root,score,hardSkillTable,SoftSkillTable,resumeText,jobDecriptionText,extractFlag=True)
+            displayHardSkills_and_SoftSkills(resultWin,score,hardSkillTable,SoftSkillTable,resumeText,jobDescriptionText,cursorListBoxSelected=index,DB_resultSetPrimaryKey=DB_resultSetPrimaryKey,ResListBox=ResListBox,extractFlag=True)
         else:
             mb.showerror('IntSelected Error','App can not find cursor Selected from ListBox')
 
@@ -404,14 +445,14 @@ def EnterPortionResultsInListBox(root,results):
     ResListBoxHorizontal_scrollbar.pack(side="bottom", fill="x")
     ResListBox.pack()
     for res in results[0]:
-        ResListBox.insert(END,', '.join([f'{allFields[i]}: {res[i]}' for i in resultIndexes]))
+        ResListBox.insert(END,', '.join([f'{allFields[i]}: {res[i]}' if res[i] else f'{allFields[i]}: _' for i in resultIndexes]))
     ResListBox.bind('<<ListboxSelect>>',lambda event: handleSelected(event,results[0],ResListBox))
 def updateJsonFile(listStrSkills:list,previosSkills:list,jsonFileName:str):
-    skillSet = [skill.strip() for skill in listStrSkills if skill not in previosSkills] + previosSkills
+    skillSet = [skill.strip() for skill in listStrSkills if (skill not in previosSkills) and (skill.isspace() == False)] + previosSkills
     with open(os.path.join(JsonDataBasePath, jsonFileName), "w") as f:
         json.dump(skillSet, f, indent=4)
 # '-------------------------------main functions---------------------------'
-def ScanPage():
+def ScanPage(labelsFromMainPage,entriesFromMainPage):
     # get date & time
     DateTimeNow = datetime.now().strftime("%y-%m-%d %H:%M:%S")
     # get texts content
@@ -427,6 +468,11 @@ def ScanPage():
         #convert tables as json string
         jsonHard_df=hard_df.to_json()
         jsonSoft_df=soft_df.to_json()
+        # create Dict of Field:Values of main page entries
+        dictFieldValues = {
+            label_: entry.get() if entry.cget("fg") == 'Black' else ''
+            for label_, entry in zip(labelsFromMainPage, entriesFromMainPage)
+        }
         # update DB
         sqlDB.insert(
             'JobInfo',
@@ -437,28 +483,29 @@ def ScanPage():
             Resume=resumeText,
             jobDescription=jobDescriptionText,
             SubmitTime=DateTimeNow,
-            JobTitle=EntriesListInBottomBottomFramInRootWin[0].get(),
-            PositionType=EntriesListInBottomBottomFramInRootWin[1].get(),
-            CompanyName=EntriesListInBottomBottomFramInRootWin[2].get())
-        # delete text in resume area
-        resumeTextWidget.delete(0.0, END)
-        dictFieldValues = dict(
-            JobTitle=EntriesListInBottomBottomFramInRootWin[0].get(),
-            PositionType=EntriesListInBottomBottomFramInRootWin[1].get(),
-            CompanyName=EntriesListInBottomBottomFramInRootWin[2].get()
+            **dictFieldValues,
         )
+        # delete text in resume text-area
+        resumeTextWidget.delete(0.0, END)
+        # Write_Or_Update json UniqueFile
         Write_Or_UpdatejsonUniqueFileds(dictFieldValues)
+        # create menu buttons in front of entries in main page
+        with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
+            dictUniqueFields = json.load(f)
+            create_menuBtns_in_frount_of_EntryWidgets(BottomBottomFramInRootWin, entriesFromMainPage,
+                                                  labelsFromMainPage,
+                                                  dictUniqueFields)
     else:
         mb.showwarning('Empty Text Area', 'Both resume and Job descriptions must be filled out')
-def SearchWinPage():
+def SearchPage():
     HELP_TEXT = """
     🔍 How to Use the Search Tool
 
     1) Fill the Entry Boxes
        - Type the values you want to search for in the corresponding entry fields.
        - You can enter:
-           * Single value (e.g., 'senior')
-           * Multiple values as a list (e.g., ['Entry-Level', 'senior'])
+           * Single value (e.g., senior)
+           * Multiple values as a list (e.g., Entry-Level, senior)
 
     2) Use the Menu Buttons (Right Side)
        - Each menu button inserts a predefined value into the matching entry field.
@@ -468,33 +515,47 @@ def SearchWinPage():
        - If you enable the Contain flag, the search will look for records containing the entered text (substring match).
        - When active, the flag turns green.
        - Example: entering 'sen' with Contain enabled will match results like 'senior'.
+       * Note: when button turn to green you cannot fill out any entry with Multiple values
 
-    4) Search Button
+    4) Search Commit Button
        - When clicked, the app collects all values from the entries, converts them into a query, and calls results
        - This fetches rows from the database table 'JobInfo' that match your conditions.
 
     5) Search Features
-       Depending on what you type in the entries, you can perform:
+       Depending on what you type in the entries, app perform:
            * Exact match → PositionType="senior"
            * Multiple exact matches → PositionType="senior", CompanyName="IT"
            * And conditions → return result if Role="senior", and Department="HR" == True
-           * IN clause → PositionType=["Entry-Level", "senior"]
+           * IN clause → PositionType IN ["Entry-Level", "senior"]
            * Contains → PositionType__contains="sen"
            * Operators → Score__operator=(">=", 30)
     Note: Make do not click containFlag Button when you want Search by score value or id_ value-s
     """
     def SearchResultPage(root,listEntries):
-        try:
-            results, dictColVal = get_result_by_searchQuery_from_Entries(listEntries, containFlagBool, list_labels)
+        results = get_result_by_searchQuery_from_Entries(listEntries, containFlagBool, listKeysAccesptByDB_and_DictInMenu)
+        if results:
             if results[0]:
-                EnterPortionResultsInListBox(root.master, results)
+                EnterPortionResultsDetailsInListBox(root.master, results)
                 # destroy previous window
                 root.destroy()
-        except:
-            mb.showerror('value error','Something in SearchResultPage function is wrong')
+            else:
+                mb.showwarning('Empty Result', "Query is not match with any result")
+        else:
+            mb.showwarning('Empty Result', "Application cannot return any result")
+    def ExtractMetadataFromDBRows():
+        res =sqlDB.view('JobInfo','MojiDB',)
+        rows = res[0]
+        columns = res[1][6:]
+        dictData = {col: list(vals) for col, vals in zip(columns, zip(*(row[6:] for row in rows)))}
+        outputDIR = fd.askdirectory(title='Select Output Directory')
+        if outputDIR:
+            find_keywords_in_job_description.pd.DataFrame(dictData).to_csv(os.path.join(outputDIR,'wholeMetaData.csv'),index=False)
+            searchWin.destroy()
+            mb.showinfo('Done')
+
     containFlagBool = BooleanVar()
-    list_labels = ['id_', 'Job Title', 'Position Type', 'Company Name','Score']
-    try:
+    list_labelsInSearchPage = ['id_', 'Job Title', 'Position Type', 'Company Name', 'Employer Name','Score']
+    if sqlDB.is_tableNotEmpty('MojiDB', 'JobInfo'):
         with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
             dictUniqueFields = json.load(f)
         # create window, labels_Entries, Menus, Buttons
@@ -502,43 +563,55 @@ def SearchWinPage():
 
         EntriesListInSearchWin = createLabelsEntriesScrulbarsIn_a_page(
             searchWin,
-            list_labels,
-            ['Integer', 'Data analytics', "['Entry-Level','Senior']", 'Npower',"('>=', 55)"], startGridRow=0)
-        listMenuNamesInFrontEntries = removewhiteSpaceInListElements(list_labels)
-        create_menuBtns_in_frount_of_EntryWidgets(searchWin, EntriesListInSearchWin[1:-1], listMenuNamesInFrontEntries[1:-1],
+            list_labelsInSearchPage,
+            ['Integer ex: 1', 'Data analyst', "Entry-Level, Senior", 'Npower', 'Someone name: Alex', ">=, 55.5"],
+            startGridRow=0)
+        listKeysAccesptByDB_and_DictInMenu = removewhiteSpaceInListElements(list_labelsInSearchPage)
+        create_menuBtns_in_frount_of_EntryWidgets(searchWin, EntriesListInSearchWin[1:-1],
+                                                  listKeysAccesptByDB_and_DictInMenu[1:-1],
                                                   dictUniqueFields)
         _, biggistRowUntilNow = getBiggestRow_and_colIndex(searchWin)
         Button(searchWin,
-               text='Search',
+               text='Search Commit',
                bg='white',
                fg='Black',
-               command=lambda: SearchResultPage(searchWin,EntriesListInSearchWin)).grid(row=biggistRowUntilNow, column=0)
-        ContainBtn =Button(searchWin,
-               text='ContainFlag: inactive',
-               bg='white',
-               fg='red',
-               command=lambda: changeOutputFlag(containFlagBool,ContainBtn,'ContainFlag: inactive','ContainFlag: active'))
-        ContainBtn.grid(row=biggistRowUntilNow, column=1,sticky='E')
+               command=lambda: SearchResultPage(searchWin, EntriesListInSearchWin)).grid(row=biggistRowUntilNow,
+                                                                                         column=0)
+        ContainBtn = Button(searchWin,
+                            text='ContainFlag: inactive',
+                            bg='white',
+                            fg='red',
+                            command=lambda: changeOutputFlag(containFlagBool, ContainBtn, 'ContainFlag: inactive',
+                                                             'ContainFlag: active'))
+        ContainBtn.grid(row=biggistRowUntilNow, column=1, sticky='E')
+        Button(searchWin,
+               text='ExtractMetadataFromDBRows',
+               bg='Black',
+               fg='Green',
+               font=('Arial', 16),
+               command=ExtractMetadataFromDBRows).grid(row=biggistRowUntilNow, column=1,sticky='s')
         Button(searchWin,
                text='Help',
                bg='white',
                fg='Green',
-               font=('Arial',16),
-               command=lambda : showHelp(searchWin,HELP_TEXT)).grid(row=biggistRowUntilNow, column=2)
-    except:
-        mb.showerror('Load Error','Uniques.json not exist which means no data exist in database')
+               font=('Arial', 16),
+               command=lambda: showHelp(searchWin, HELP_TEXT)).grid(row=biggistRowUntilNow, column=2)
+    else:
+        mb.showinfo('Empty Database','There is nothing to search')
 def Add_SkillPage(hard_Skills:list,soft_Skills:list):
     def add_into_json_files(LabelEntries:dict):
-        Add_SkillWin.destroy()
+        Add_SkillPageDestroyFlag = False
         for label,entry in LabelEntries.items():
             current_fg = entry.cget("fg")
             if (current_fg == 'Black') and (entry.get() != ''):
+                Add_SkillPageDestroyFlag = True
                 listStrSkills = entry.get().split(',')
                 if label == 'Soft Skill-s':
                     updateJsonFile(listStrSkills, soft_Skills, 'soft_Skills.json')
                 else:
                     updateJsonFile(listStrSkills, hard_Skills, 'hard_Skills.json')
-
+            if Add_SkillPageDestroyFlag:
+                Add_SkillWin.destroy()
     # create window, labels_Entries, Buttons
     Add_SkillWin = create_top_window(MainRootWin, title='Search', geometry='',GrabFlag=False)
     labels = ['Soft Skill-s','Hard Skill-s']
@@ -546,7 +619,7 @@ def Add_SkillPage(hard_Skills:list,soft_Skills:list):
         Add_SkillWin,labels,
         ['Enter one or more skill ex: skill1, skill2','Enter one or more skill ex: skill1, skill2'], startGridRow=0)
     _, biggistRowUntilNow = getBiggestRow_and_colIndex(Add_SkillWin)
-    dictLabelEntries= {labels[i]:EntriesListInSearchWin[i] for i in range(len(EntriesListInSearchWin))}
+    dictLabelEntries = {label:entry for label,entry in zip(labels,EntriesListInSearchWin)}
     Button(Add_SkillWin,
            text='Commit',
            bg='white',
@@ -577,7 +650,6 @@ def UploadTextFile(TextWidgetName):
     TextWidget.delete(0.0,END)
     if file_path:
         ext = os.path.splitext(file_path)[1]  # includes the dot, e.g. ".csv"
-        print("Extension:", ext)
         if ext == '.pdf':
             with open(file_path, "rb") as f:
                 reader = PyPDF2.PdfReader(f)
@@ -615,16 +687,19 @@ sqlDB.table_maker(
     'Resume Text',
     'jobDescription Text',
     'SubmitTime DATETIME',
-    'JobTitle VARCHAR(60)',
+    'JobTitle VARCHAR(120)',
     'PositionType VARCHAR(60)',
-    'CompanyName VARCHAR(60)')
+    'CompanyName VARCHAR(120)',
+    'EmployerName VARCHAR(120)')
 # '-----------------------create main MainRootWin------------------------------'
 MainRootWin = create_top_window(title='Scan Job for Keywords', geometry='', flag_topLevel=False)
 # '-------------------------------initialization---------------------------'
 
 # '-------------------------------frames---------------------------'
-TopFramInRootWin = Frame(MainRootWin, width=690, height=25, bg='gray')
+TopFramInRootWin = Frame(MainRootWin, height=25, bg='gray')
 TopFramInRootWin.pack(side=TOP)
+
+
 MiddelFramInRootWin = Frame(MainRootWin, bg='gray')
 MiddelFramInRootWin.pack(side=TOP)
 BottomFramInRootWin = Frame(MainRootWin, width=690, height=25, bg='gray')
@@ -639,33 +714,76 @@ RightMiddelFramInRootWin = Frame(MiddelFramInRootWin, bg='gray')
 RightMiddelFramInRootWin.grid(row=0, column=1, padx=2)
 
 # '-------------------------------variables---------------------------'
+MainPageHelpText = '''
+📖 Help Guide – Scan Job for Keywords
 
+Purpose of the App
+------------------
+This application helps you compare your CV with a Job Description by scanning both texts 
+and finding keyword matches. It shows how many times each keyword appears in the job description 
+versus your CV, so you can optimize your resume before applying.
+
+Main Sections
+-------------
+1. CV and Job Description Panels
+   - CV (left): Paste or upload your CV text.
+   - Job Description (right): Paste or upload the job posting text.
+   - Use the "Upload" buttons below each panel to open a file/text upload page.
+
+2. Scan Button (Center)
+   - After inserting text into both panels, click "Scan".
+   - The app will extract keywords from the Job Description and compare their frequency with your CV.
+   - Results highlight which keywords are missing or underused in your CV.
+
+3. Meta Data Section (Bottom)
+   - Job Title: Enter the role you’re applying for.
+   - Position Type: Choose from options like Entry-Level, Mid-Level, etc.
+   - Company Name: Enter the Company of job description name.
+   - Employer Name: Enter the employer’s name
+   - Each entry may has a menu button on the right to help you select or autofill values.
+
+   ✅ All metadata is stored in the database for future searches and record-keeping.
+
+Workflow
+--------
+1. Upload or paste your CV text.
+2. Upload or paste the Job Description text.
+3. (Optional) Fill in Job Title, Position Type, and Company Name.
+4. Press "Scan" to run keyword comparison.
+5. Review the results and adjust your CV accordingly.
+6. Save metadata for tracking your job applications.
+
+Tips
+----
+- Clean up formatting before pasting your CV (plain text works best).
+- Keywords matter: If a word appears often in the job posting but rarely in your CV, 
+  consider adding it where relevant.
+- Use the metadata fields to build your own application history database.
+'''
 
 # '-------------------------------memu---------------------------'
 Functions_menu_but, menu_Functions = create_menu_drop_down(TopFramInRootWin,
-                                                        {'Search': (SearchWinPage,),'Add Skill':(Add_SkillPage,hard_Skills,soft_Skills) },
-                                                        text='Functions', column=0)
-
-# '-------------------------------buttons---------------------------'
-Button(BottomFramInRootWin, text='Scan', font=('arial', 14),bg='green', command=ScanPage).pack(side=BOTTOM)
-
+                                                        {'Search': (SearchPage,),'Add Skill':(Add_SkillPage,hard_Skills,soft_Skills), },
+                                                        text='Functions', column=0,fg='Blue')
 # '-------------------------------list-box--------------------------'
-
-# '-------------------------------labels & Entries---------------------------'
-JobRelatedLabels = ['Job Title','Position Type','Company Name']
+# '-------------------------------labels & Entries & scrollbars---------------------------'
+JobRelatedLabelsInMainPage = ['Job Title','Position Type','Company Name','Employer Name']
 EntriesListInBottomBottomFramInRootWin = createLabelsEntriesScrulbarsIn_a_page(
-    BottomBottomFramInRootWin,JobRelatedLabels,
-['','Entry-Level',''],startGridRow=0)
-MenuNamesInFrontEntries = removewhiteSpaceInListElements(JobRelatedLabels)
-create_menuBtns_in_frount_of_EntryWidgets(BottomBottomFramInRootWin, EntriesListInBottomBottomFramInRootWin, MenuNamesInFrontEntries,
+    BottomBottomFramInRootWin,JobRelatedLabelsInMainPage,
+['Data analyst','Entry-Level','Npower','Someone name: Alex'],startGridRow=0)
+MenuNamesInFrontEntries = removewhiteSpaceInListElements(JobRelatedLabelsInMainPage)
+try:
+    create_menuBtns_in_frount_of_EntryWidgets(BottomBottomFramInRootWin, EntriesListInBottomBottomFramInRootWin, MenuNamesInFrontEntries,
                                                   dictUniqueFields)
+except NameError:
+    pass
+# '-------------------------------buttons---------------------------'
+Button(BottomFramInRootWin, text='Scan', font=('arial', 14),bg='green', command=lambda:ScanPage(MenuNamesInFrontEntries,EntriesListInBottomBottomFramInRootWin)).pack(side=BOTTOM)
+Button(TopFramInRootWin, text='Main Page Help', font=('arial', 14),bg='green', command=lambda:showHelp(MainRootWin,MainPageHelpText)).grid(row=0,column=1,sticky='E')
 # '-------------------------------text-boxs--------------------------'
 resumeTextWidget = createTextAreaIn_a_RootWithLabel_and_button(LeftMiddelFramInRootWin, 'CV', 'Upload', UploadTextFile,'resumeTextWidget' )
 jobDescriptionTextWidget = createTextAreaIn_a_RootWithLabel_and_button(RightMiddelFramInRootWin, 'Job Description',
                                                                        'Upload', UploadTextFile, 'jobDescriptionTextWidget')
-# '-------------------------------scrollbars---------------------------'
-
-
 # '-------------------------------binding---------------------------'
 MainRootWin.bind('<Destroy>', win_destroy)
 MainRootWin.mainloop()

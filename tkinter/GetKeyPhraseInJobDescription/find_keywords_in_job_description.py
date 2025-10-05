@@ -26,7 +26,10 @@ def remove_repeatedPhraseWithSameMeaning(listKeywords):
     for word in OneWordINKeywordPhrase:
       stemSingleWord = stemmer.stem(word)
       if stemFirstWord == stemSingleWord:
-        finalList.remove(word)
+        try:
+            finalList.remove(word)
+        except ValueError:
+            print(word,finalList)
   return finalList
 def remove_keysInDictWithSameMeaning(dictKeywords):
   listFilteredKeywords =remove_repeatedPhraseWithSameMeaning(list(dictKeywords.keys()))
