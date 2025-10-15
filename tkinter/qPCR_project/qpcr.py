@@ -4,25 +4,21 @@ import os
 # import matplotlib
 # matplotlib.use("TkAgg")
 
-def read_excel(path,sheetName='Results',skipRows=38):
-  # create df
-  df = pd.read_excel(path, sheet_name='Results', skiprows=38)
-  df = df.dropna(axis=1, how='all')
-  # dict_subSamples: dict of samples which must split into different df by substrings of sample names
-  df_CT_Result_table, df_CtSD_errors = create_ResultTable_from_df_by_removing_H2O_SampleNames_and_Undetermined_CT_and_create_CtSD_errors_by_filter_CtSD_more_than_0p6(
-    df)
-  df_CT_Result_table = remove_outlyer_CTs_from_df_CT_Result_table(df_CT_Result_table, df_CtSD_errors)
-  df_pivot = create_pivotTable_from_df_clean_CT_Result_table(df_CT_Result_table)
-  return df_CT_Result_table, df_pivot
-"""**Check Ct SD more than 0.5**"""
-
-
 def create_ResultTable_from_df_by_removing_H2O_SampleNames_and_Undetermined_CT_and_create_CtSD_errors_by_filter_CtSD_more_than_0p6(df_CT_Result_table):
   df_CT_Result_table = df_CT_Result_table[df_CT_Result_table['Sample Name'] != 'H2O']
+  df_CT_Result_table = df_CT_Result_table[df_CT_Result_table['Sample Name'] != 'h2o']
   df_CT_Result_table = df_CT_Result_table[df_CT_Result_table['CT'] != 'Undetermined']
   df_CtSD_errors = df_CT_Result_table[df_CT_Result_table['Ct SD'] > 0.6][['Well Position','Sample Name','Target Name','CT','Ct SD']]
   df_CtSD_errors.loc[:,'Ct SD'] = df_CtSD_errors['Ct SD'].round(3)
   return df_CT_Result_table, df_CtSD_errors
+
+def remove_outlyer_CTs_from_df_CT_Result_table(df_CT_Result_table,df_CtSD_errors):
+  for ct_sd in df_CtSD_errors['Ct SD'].unique():
+    current_sery = df_CtSD_errors[df_CtSD_errors['Ct SD'] == ct_sd]['CT']
+    outlier = find_outlyer(current_sery.values)
+    index2drop = df_CtSD_errors[df_CtSD_errors['CT'] == outlier].index
+    df_CT_Result_table.drop(index2drop, inplace=True)
+  return df_CT_Result_table
 
 def find_outlyer(list_numbers):
   mean_list = sum(list_numbers)/len(list_numbers)
@@ -34,15 +30,6 @@ def find_outlyer(list_numbers):
       outlier = i
   return outlier
 
-def remove_outlyer_CTs_from_df_CT_Result_table(df_CT_Result_table,df_CtSD_errors):
-  for ct_sd in df_CtSD_errors['Ct SD'].unique():
-    current_sery = df_CtSD_errors[df_CtSD_errors['Ct SD'] == ct_sd]['CT']
-    outlier = find_outlyer(current_sery.values)
-    index2drop = df_CtSD_errors[df_CtSD_errors['CT'] == outlier].index
-    df_CT_Result_table.drop(index2drop, inplace=True)
-  return df_CT_Result_table
-
-
 def create_pivotTable_from_df_clean_CT_Result_table(df_CT_Result_table):
   df_pivot = df_CT_Result_table.pivot_table(
     index='Sample Name',
@@ -50,6 +37,27 @@ def create_pivotTable_from_df_clean_CT_Result_table(df_CT_Result_table):
     values='CT',
      aggfunc='mean')
   return df_pivot
+def read_excel(path,sheetName='Results',skipRows=38):
+  # create df
+  df = pd.read_excel(path, sheet_name=sheetName, skiprows=skipRows)
+  df = df.dropna(axis=1, how='all')
+  # dict_subSamples: dict of samples which must split into different df by substrings of sample names
+  df_CT_Result_table, df_CtSD_errors = create_ResultTable_from_df_by_removing_H2O_SampleNames_and_Undetermined_CT_and_create_CtSD_errors_by_filter_CtSD_more_than_0p6(
+    df)
+  df_CT_Result_table = remove_outlyer_CTs_from_df_CT_Result_table(df_CT_Result_table, df_CtSD_errors)
+  df_pivot = create_pivotTable_from_df_clean_CT_Result_table(df_CT_Result_table)
+  return df_CT_Result_table, df_pivot
+"""**Check Ct SD more than 0.5**"""
+# df_CT_Result_table, df_pivot = read_excel(r"C:\Users\mojij\Downloads\editedSamplenameQpcr2025-10-10.xlsx",sheetName='Results',skipRows=0)
+# print(df_CT_Result_table)
+# print(df_pivot)
+
+
+
+
+
+
+
 
 
 def get_sampleNames_from_df_pivot_which_contain_str(dataFrame,list_str):

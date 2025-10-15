@@ -118,12 +118,22 @@ def openFoldChangePage():
     FoldChangeWin = create_top_window(root_win=window, title='Fold Change window', geometry='', width=False, height=False,
                       GrabFlag=False)
     ListofDfForUseInsaveBarPlots = []
-    def createDf_and_showIt():
+    def createDF(sheetName,skipRows):
         try:
             excelFilePath = fd.askopenfilename(title='select file',
                                               filetypes=[('exel files', "*.xlsx"), ('exel files', "*.xls"), ])
-
-            df, df_pivot = qpcr.read_excel(excelFilePath)
+            df, df_pivot = qpcr.read_excel(excelFilePath,sheetName=sheetName,skipRows=skipRows)
+            ListofDfForUseInsaveBarPlots.clear()
+            ListofDfForUseInsaveBarPlots.append(df_pivot)
+            return df, df_pivot
+        except:
+            print('error in "createDF"')
+    def createDf_and_showIt():
+        try:
+            valuesOfEntriesInFoldChangeWin = [wid.get() for wid in entries]
+            skipRows = ast.literal_eval(valuesOfEntriesInFoldChangeWin[4])
+            sheetName = valuesOfEntriesInFoldChangeWin[5]
+            df, df_pivot = createDF(sheetName,skipRows)
             FoldChangeTableWin = create_top_window(root_win=FoldChangeWin, title='Table of Fold Change window',
                                                    geometry='600x200+400+100',
                                                    width=False, height=False,GrabFlag=False)
@@ -150,9 +160,8 @@ def openFoldChangePage():
             tree.pack(fill="both", expand=True)
             # pull up windows in correct order
             pull_up_wins([window, FoldChangeWin, FoldChangeTableWin])
-            ListofDfForUseInsaveBarPlots.clear()
-            ListofDfForUseInsaveBarPlots.append(df_pivot)
         except:
+            print('error in "createDf_and_showIt"')
             pull_up_wins([window, FoldChangeWin])
     def showHelp():
         helpWin = create_top_window(root_win=FoldChangeWin, title='Instruction',
@@ -200,42 +209,21 @@ def openFoldChangePage():
         listReferenceGeneNames = ast.literal_eval(valuesOfEntriesInFoldChangeWin[1])
         listControlSamples = ast.literal_eval(valuesOfEntriesInFoldChangeWin[2])
         listFilterOutFoldChanges = ast.literal_eval(valuesOfEntriesInFoldChangeWin[3])
-        # this below nested block of codes says:
-        # hey if user load data go by first condition else second
-        # also in each one check outputFlag to use defult or not
+        skipRows = ast.literal_eval(valuesOfEntriesInFoldChangeWin[4])
+        sheetName = valuesOfEntriesInFoldChangeWin[5]
         if ListofDfForUseInsaveBarPlots:
             if outputFlagBool.get() == False:
                 outputDIR = fd.askdirectory(title='Select Output Directory')
                 if outputDIR:
-                    qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0],dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,SaveDIR=outputDIR + '/',ReplaceSampleControlName2Control=SampleNameFlagBool.get())
+                    qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0],dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,SaveDIR=outputDIR + '/',ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get())
                 else:
                     mb.showerror(title='Output error when you load data', message='No Directory is selected')
             else:
-                qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0], dict_dfs, listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,ReplaceSampleControlName2Control=SampleNameFlagBool.get())
+                qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0], dict_dfs, listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get())
             ListofDfForUseInsaveBarPlots.clear()
         else:
-            excelFilePath = fd.askopenfilename(title='Select File',
-                                               filetypes=[('exel files', "*.xlsx"), ('exel files', "*.xls"), ])
-            if excelFilePath:
-                if outputFlagBool.get() == False:
-                    outputDIR = fd.askdirectory(title='Select Output Directory')
-                    if outputDIR:
-                        qpcr.plot_target_foldChangeDFs(excelFilePath,dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,SaveDIR=outputDIR + '/',ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get())
-                    else:
-                        mb.showerror(title='Output error when you do not load data', message='No Directory is selected')
-                else:
-                    qpcr.plot_target_foldChangeDFs(excelFilePath,dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get())
-            else:
-                mb.showerror(title='Impute error',message='No data is selected')
-        try:
-            if outputDIR:
-                mb.showinfo('thumbs up',f'Data is saved in {outputDIR}')
-            else:
-                if outputFlagBool.get():
-                    mb.showinfo('thumbs up',f'Data is saved successfully')
-        except UnboundLocalError:
-            print('outputDIR is not exist')
-            pass
+            df, df_pivot = createDF(sheetName,skipRows)
+            saveBarPlots()
         pull_up_wins([FoldChangeWin])
     def changeOutputFlag():
         if outputFlagBool.get() == False:
@@ -252,9 +240,9 @@ def openFoldChangePage():
             sampleNameFlagButton.configure(fg='red')
             SampleNameFlagBool.set(False)
     # create necessary widgets by below lists
-    list_labels = ['SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges']
+    list_labels = ['SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges','SkipRows','SheetName']
     list_placeholders = ["{'df_SIRNA':['CTR','siRNA' ],'df_Starved':['Starved','PC12-EB','VLP1','Differentiated']}",
-                         "[['POL2A'],['POL2A']]", "[['PC12-CTR-SIRNA'], ['PC12-Starved']]", "['foldChange_POL2A']"]
+                         "[['POL2A'],['POL2A']]", "[['PC12-CTR-SIRNA'], ['PC12-Starved']]", "['foldChange_POL2A']",'38','Results']
     Button(FoldChangeWin,
            text='load and show Data Frame',
            bg='white',
