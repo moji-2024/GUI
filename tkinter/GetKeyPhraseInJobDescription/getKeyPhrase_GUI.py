@@ -4,7 +4,6 @@ from tkinter import messagebox as mb
 from tkinter import filedialog as fd
 from functools import partial
 import find_keywords_in_job_description
-import ast
 import json
 from SQL_DataBase import sqlDB
 from datetime import datetime
@@ -139,7 +138,7 @@ def createTextAreaIn_a_RootWithLabel_and_button(root, labelStr, buttonStr, func,
     text = Text(root, width=40, height=25)
     text.grid(row=1, column=0, sticky='W')
     connect_scrollbar_to_widget(root, text, 1, 1, 2, 0)
-    Button(root, text=buttonStr, font=('arial', 14), command=lambda: func(*funcArgs)).grid(row=3, column=0, padx=40,
+    Button(root, text=buttonStr,fg='Blue' ,font=('arial', 14), command=lambda: func(*funcArgs)).grid(row=3, column=0, padx=40,
                                                                                            sticky='S')
     return text
 
@@ -204,6 +203,22 @@ def printTableInWindow(root, table_df, labelName: str):
     vertical_scrollbar.pack(side="right", fill="y")
     horizontal_scrollbar.pack(side="bottom", fill="x")
     tree.pack(fill="both", expand=True)
+
+    def copyRow2clipboard(event=None,index=0):
+        selected = tree.focus()
+        if not selected:
+            return
+        values = tree.item(selected, "values")
+        if values:
+            # Copy all cell text or one cell
+            text = "\t".join(map(str, values))
+            tree.clipboard_clear()
+            if index == 0:
+                tree.clipboard_append(values[index])
+            else:
+                tree.clipboard_append(text)
+    tree.bind("<Control-c>", lambda event: copyRow2clipboard(event,0))
+
 
 def draw_score(canvas, x, y, radius, score, max_score=100):
     """
@@ -307,7 +322,7 @@ def searchEntryValidation(label_,entry_):
             return listElements[0]
         return listElements
 
-def get_result_by_searchQuery_from_Entries(listEntries,containFlagBool,Db_ColNames):
+def get_DB_result_by_searchQuery_from_Entries(listEntries,containFlagBool,Db_ColNames):
     dictColVal = {}
     redFlag = False
     for col, entry in zip(Db_ColNames,listEntries):
@@ -327,7 +342,7 @@ def get_result_by_searchQuery_from_Entries(listEntries,containFlagBool,Db_ColNam
                         dictColVal[col] = valuableValue
             except ValueError:
                 redFlag = True
-                mb.showerror('Syntax Error','Style of entries is not expected; Something in get_result_by_searchQuery_from_Entries is wrong')
+                mb.showerror('Syntax Error','Style of entries is not expected; Something in get_DB_result_by_searchQuery_from_Entries is wrong')
     if dictColVal:
         return sqlDB.search(
             'JobInfo',
@@ -383,8 +398,15 @@ def Extraction_and_deleteInformationPage(root,resumeText,jobDescriptionText,curs
     Button(root, text='Extract Job Description',command=lambda :ExtractText(jobDescriptionText,'Selected_Job Description.txt')).pack(side=TOP, anchor='nw')
     Button(root, text='Extract Metadata',
            command= ExtractMetadata).pack(side=TOP, anchor='nw')
-
+def topMost(win_root,Btn):
+    is_on_top = win_root.attributes('-topmost')
+    win_root.attributes('-topmost', not is_on_top)
+    if is_on_top:
+        Btn.config(bg='Red')
+    else:
+        Btn.config(bg='Green')
 def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,jobDescriptionText=None,cursorListBoxSelected=None,DB_resultSetPrimaryKey=None,ResListBox=None,extractFlag=False):
+
     # create win
     ComparisonWin = create_top_window(root_win=root, title='Compare your resume with Job description',
                                       geometry='800x350+400+100',
@@ -398,6 +420,9 @@ def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,
     OvalCanvas = Canvas(ComparisonMasterFrame, width=150, height=150, bg="white")
     OvalCanvas.pack(side=LEFT)
     draw_score(OvalCanvas, 75, 75, 60, score=score)
+    # put btn of TopMost for keep page always on top of other pages
+    TopMostBtn = Button(ComparisonMasterFrame,text='TopMost', bg='Red', command=lambda: topMost(ComparisonWin,TopMostBtn))
+    TopMostBtn.pack(side=TOP,anchor='ne')
     # put Frames in canvas
     hardSkillsFramInComparisonWin = Frame(ComparisonMasterFrame, bg='gray')
     hardSkillsFramInComparisonWin.pack(side=TOP)
@@ -470,7 +495,7 @@ def ScanPage(labelsFromMainPage,entriesFromMainPage):
         jsonSoft_df=soft_df.to_json()
         # create Dict of Field:Values of main page entries
         dictFieldValues = {
-            label_: entry.get() if entry.cget("fg") == 'Black' else ''
+            label_: entry.get().title() if entry.cget("fg") == 'Black' else ''
             for label_, entry in zip(labelsFromMainPage, entriesFromMainPage)
         }
         # update DB
@@ -532,7 +557,7 @@ def SearchPage():
     Note: Make do not click containFlag Button when you want Search by score value or id_ value-s
     """
     def SearchResultPage(root,listEntries):
-        results = get_result_by_searchQuery_from_Entries(listEntries, containFlagBool, listKeysAccesptByDB_and_DictInMenu)
+        results = get_DB_result_by_searchQuery_from_Entries(listEntries, containFlagBool, listKeysAccesptByDB_and_DictInMenu)
         if results:
             if results[0]:
                 EnterPortionResultsDetailsInListBox(root.master, results)
