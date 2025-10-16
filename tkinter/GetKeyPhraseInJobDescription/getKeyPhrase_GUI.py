@@ -372,12 +372,13 @@ def showHelp(root,text):
     helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
 def Extraction_and_deleteInformationPage(root,resumeText,jobDescriptionText,cursorListBoxSelected,DB_resultSetPrimaryKey,ResListBox):
     # this page help to extract resume & job Description Text as well as metadata as a csv file. Also delete recoreded Data from database.
+    DictData = {KeyValue.split(':')[0].strip(): KeyValue.split(':')[1].strip() for KeyValue in
+                ResListBox.get(cursorListBoxSelected).split(',')}
+    FileName = '_'.join([name if name != '_' else '' for name in [DictData['JobTitle'],DictData['CompanyName']]])
     def ExtractMetadata():
-        DictData = {KeyValue.split(':')[0].strip(): KeyValue.split(':')[1].strip() for KeyValue in
-                    ResListBox.get(cursorListBoxSelected).split(',')}
         outputDIR = fd.askdirectory(title='Select Output Directory')
         if outputDIR:
-            find_keywords_in_job_description.pd.DataFrame(DictData,index=[0]).to_csv(os.path.join(outputDIR,'metaData.csv'),index=False)
+            find_keywords_in_job_description.pd.DataFrame(DictData,index=[0]).to_csv(os.path.join(outputDIR,f'{FileName}metaData.csv'),index=False)
             mb.showinfo('Done')
     def DeleteRecord():
         ResListBox.delete(cursorListBoxSelected)
@@ -394,8 +395,8 @@ def Extraction_and_deleteInformationPage(root,resumeText,jobDescriptionText,curs
 
     Button(root, text='Delete Record', bg='Black', fg='Red',
            command=lambda: DeleteRecord()).pack(side=TOP, anchor='ne')
-    Button(root, text='Extract Resume',command=lambda :ExtractText(resumeText,'Selected_Resume.txt')).pack(side=TOP, anchor='nw')
-    Button(root, text='Extract Job Description',command=lambda :ExtractText(jobDescriptionText,'Selected_Job Description.txt')).pack(side=TOP, anchor='nw')
+    Button(root, text='Extract Resume',command=lambda :ExtractText(resumeText,f'{FileName}Resume.txt')).pack(side=TOP, anchor='nw')
+    Button(root, text='Extract Job Description',command=lambda :ExtractText(jobDescriptionText,f'{FileName}JobDescription.txt')).pack(side=TOP, anchor='nw')
     Button(root, text='Extract Metadata',
            command= ExtractMetadata).pack(side=TOP, anchor='nw')
 def topMost(win_root,Btn):
