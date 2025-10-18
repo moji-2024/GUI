@@ -18,5 +18,6 @@ This tool helps researchers process qPCR results with reference genes, calculate
    ```bash
    cd tkinter/qPCR_project
    pip install -r requirements.txt
-   pyinstaller --onedir --windowed qPCR_GUI.py
+   pyinstaller --onedir --windowed --add-data "SampleData;qPCR_project/SampleData" qPCR_GUI.py
+
 
