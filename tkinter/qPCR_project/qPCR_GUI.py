@@ -5,8 +5,26 @@ from tkinter import filedialog as fd
 from functools import partial
 import qpcr
 import ast
+import os, sys
+def resource_path(relative_path: str) -> str:
+    # PyInstaller sets sys.frozen = True when your script is running
+    # inside a bundled app (both --onefile and --onedir).
+    if getattr(sys, 'frozen', False):
 
+        # If it's --onefile, PyInstaller extracts everything into a
+        # random temp folder (_MEI12345) and sets sys._MEIPASS.
+        # If it's --onedir, there is no _MEIPASS, so we fall back to
+        # the folder where the exe lives (sys.executable).
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
 
+    else:
+        # If you're just running the script normally (not frozen),
+        # use the directory where your .py file is located.
+        base_path = os.path.dirname(os.path.abspath('.'))
+
+    # Build a full absolute path to your resource file
+    return os.path.join(base_path, relative_path)
+samplePath = resource_path('qPCR_project/SampleData/QPCR FH.xls')
 # '-------------------------------building functions---------------------------'
 def win_destroy(event):
     all_widgets = get_all_children(window)
@@ -111,6 +129,73 @@ def getBiggestRow_and_colIndex(root,):
     biggistRow = max(childWidget.grid_info()["row"] for childWidget in childWidgetsOfFoldChangeWin)
     biggistCol = max(childWidget.grid_info()["column"] for childWidget in childWidgetsOfFoldChangeWin)
     return biggistCol,biggistRow
+def printTableInWindow(root, table_df, labelName: str):
+    Label(root, text=labelName, font=('arial ', 17)).pack(side=TOP)
+    # Create a style
+    style = ttk.Style(root)
+
+    # Change font of all Treeviews
+    style.configure("Treeview", font=("Helvetica", 13,))
+
+    # Change font of the headings
+    style.configure("Treeview.Heading", font=("Helvetica", 14, "bold"))    # Create Treeview with DataFrame columns
+    tree = ttk.Treeview(root, columns=list(table_df.columns), show="headings")
+    # Define headings
+    colWidths = [170,110,160,110]
+    for i,col in enumerate(table_df.columns):
+        tree.heading(col, text=col)
+        try:
+            tree.column(col, width=colWidths[i], anchor="center")
+        except IndexError:
+            tree.column(col, width=145, anchor="center")
+    # Insert rows from DataFrame
+    for sampleName, row in table_df.iterrows():
+        tree.insert("", END, values=list(row))
+        tree.insert("", END, values=['-' * int(120 / len(row)) for row_ in list(row)])
+    # connect scrollbars to tree_widget
+    vertical_scrollbar, horizontal_scrollbar = connect_scrollbar_to_widget(root, tree,
+                                                                           row_scr_vertical=None,
+                                                                           row_scr_horizontal=None,
+                                                                           scr_horizontal=True)
+    # pack elements
+    vertical_scrollbar.pack(side="right", fill="y")
+    horizontal_scrollbar.pack(side="bottom", fill="x")
+    tree.pack(fill="both", expand=True)
+
+    def copyRow2clipboard(event=None,index=0):
+        selected = tree.focus()
+        if not selected:
+            return
+        values = tree.item(selected, "values")
+        if values:
+            # Copy all cell text or one cell
+            text = "\t".join(map(str, values))
+            tree.clipboard_clear()
+            if index == 0:
+                tree.clipboard_append(values[index])
+            else:
+                tree.clipboard_append(text)
+    tree.bind("<Control-c>", lambda event: copyRow2clipboard(event,0))
+def readWholeexcel(excelFilePath,sheetName=None):
+    if sheetName:
+        df = qpcr.pd.read_excel(excelFilePath, sheet_name=sheetName, header=None)
+        cols = df.columns.tolist()
+        df['RowNum'] = [i + 1 for i in df.index]
+        return df[['RowNum'] + cols]
+    else:
+        dict_df = qpcr.pd.read_excel(excelFilePath, sheet_name=sheetName, header=None)
+        for sheet , df in dict_df.items():
+            cols = df.columns.tolist()
+            df['RowNum'] = [i + 1 for i in df.index]
+            dict_df[sheet] = df[['RowNum'] + cols]
+        return dict_df
+def topMost(win_root,Btn):
+    is_on_top = win_root.attributes('-topmost')
+    win_root.attributes('-topmost', not is_on_top)
+    if is_on_top:
+        Btn.config(bg='Red')
+    else:
+        Btn.config(bg='Green')
 # '-------------------------------main functions---------------------------'
 def openFoldChangePage():
     outputFlagBool = BooleanVar()
@@ -119,49 +204,46 @@ def openFoldChangePage():
                       GrabFlag=False)
     ListofDfForUseInsaveBarPlots = []
     def createDF(sheetName,skipRows):
+        excelFilePath = fd.askopenfilename(title='select file',
+                                           filetypes=[('exel files', "*.xlsx"), ('exel files', "*.xls"), ])
         try:
-            excelFilePath = fd.askopenfilename(title='select file',
-                                              filetypes=[('exel files', "*.xlsx"), ('exel files', "*.xls"), ])
-            df, df_pivot = qpcr.read_excel(excelFilePath,sheetName=sheetName,skipRows=skipRows)
-            ListofDfForUseInsaveBarPlots.clear()
-            ListofDfForUseInsaveBarPlots.append(df_pivot)
-            return df, df_pivot
+            try:
+                df, df_pivot = qpcr.read_excel(excelFilePath,sheetName=sheetName,skipRows=skipRows)
+                ListofDfForUseInsaveBarPlots.clear()
+                ListofDfForUseInsaveBarPlots.append(df_pivot)
+                return df, df_pivot
+            except:
+                df = readWholeexcel(excelFilePath,sheetName)
+                return df, _
         except:
-            print('error in "createDF"')
+            mb.showerror(title='ReadError',message='Error in "createDF"')
+
     def createDf_and_showIt():
         try:
             valuesOfEntriesInFoldChangeWin = [wid.get() for wid in entries]
             skipRows = ast.literal_eval(valuesOfEntriesInFoldChangeWin[4])
             sheetName = valuesOfEntriesInFoldChangeWin[5]
-            df, df_pivot = createDF(sheetName,skipRows)
+            df, df_pivot = createDF(sheetName, skipRows)
             FoldChangeTableWin = create_top_window(root_win=FoldChangeWin, title='Table of Fold Change window',
-                                                   geometry='600x200+400+100',
-                                                   width=False, height=False,GrabFlag=False)
-            # create df_toShow by .reset_index() which add indexes to a new column and reset indexes to int
-            df_toShow = df_pivot.reset_index()
-            # Create Treeview with DataFrame columns
-            tree = ttk.Treeview(FoldChangeTableWin, columns=list(df_toShow.columns), show="headings")
-            # Define headings
-            for col in df_toShow.columns:
-                tree.heading(col, text=col)
-                tree.column(col, width=120, anchor="center")
-            # Insert rows from DataFrame
-            for sampleName, row in df_toShow.iterrows():
-                tree.insert("", END, values=list(row))
-            mb.showinfo('Thumbs up', 'Your data is successfully loaded')
-            # connect scrollbars to tree_widget
-            vertical_scrollbar, horizontal_scrollbar = connect_scrollbar_to_widget(FoldChangeTableWin, tree,
-                                                                                   row_scr_vertical=None,
-                                                                                   row_scr_horizontal=None,
-                                                                                   scr_horizontal=True)
-            # pack elements
-            vertical_scrollbar.pack(side="right", fill="y")
-            horizontal_scrollbar.pack(side="bottom", fill="x")
-            tree.pack(fill="both", expand=True)
-            # pull up windows in correct order
-            pull_up_wins([window, FoldChangeWin, FoldChangeTableWin])
+                                                   geometry='600x250+400+100',
+                                                   width=False, height=False, GrabFlag=False)
+            try:
+                # create df_toShow by .reset_index() which add indexes to a new column and reset indexes to int
+                df_toShow = df_pivot.reset_index()
+                # create Btn to keep page on top
+                TopMostBtn = Button(FoldChangeTableWin, text='TopMost', bg='Red',
+                                    command=lambda: topMost(FoldChangeTableWin, TopMostBtn))
+                TopMostBtn.pack(side=TOP, anchor='ne')
+                # Create Treeview with DataFrame columns
+                printTableInWindow(FoldChangeTableWin, df_toShow, 'Pivot table')
+                mb.showinfo('Thumbs up', 'Your data is successfully loaded')
+                # pull up windows in correct order
+                pull_up_wins([window, FoldChangeWin, FoldChangeTableWin])
+            except:
+                # Create Treeview with DataFrame columns
+                printTableInWindow(FoldChangeTableWin, df, 'Whole Data to check')
         except:
-            print('error in "createDf_and_showIt"')
+            mb.showerror(title='Error in createDf_and_showIt',message='App can not read the excel data')
             pull_up_wins([window, FoldChangeWin])
     def showHelp():
         helpWin = create_top_window(root_win=FoldChangeWin, title='Instruction',
@@ -283,8 +365,17 @@ def openMeltCurvePage():
     meltCurveWin = create_top_window(root_win=window, title='Melt Curve window', geometry='600x200+400+100', width=False, height=False,
                                       flag_topLevel=False)
 
-
-
+def OpenSampleDataPage():
+    all_sheets = readWholeexcel(samplePath,sheetName=None)
+    pageLoc = 0
+    for sheetName in all_sheets:
+        Win = create_top_window(root_win=window, title=sheetName, geometry=f'600x250+{400 + pageLoc}+{100+ pageLoc}', width=False,
+                                          height=False,
+                                          GrabFlag=False)
+        df = all_sheets[sheetName]
+        # Create Treeview with DataFrame columns
+        printTableInWindow(Win, df, sheetName)
+        pageLoc += 30
 
 
 
@@ -306,7 +397,7 @@ TopFramInRootWin.pack(side=TOP)
 
 
 # '-------------------------------memu---------------------------'
-Functions_menu_but, menu_seller = create_menu_drop_down(TopFramInRootWin, {'FoldChange': (openFoldChangePage,),'meltCurve': (openMeltCurvePage,),},
+Functions_menu_but, menu_seller = create_menu_drop_down(TopFramInRootWin, {'FoldChange': (openFoldChangePage,),'meltCurve': (openMeltCurvePage,),'SampleData':(OpenSampleDataPage,)},
                                                text='Functions', column=0)
 
 

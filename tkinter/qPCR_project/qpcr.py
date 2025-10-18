@@ -168,8 +168,8 @@ def check_if_outputFile_not_exist_otherwise_return_path(path,index=0):
     return path
 def savefoldChangePlots_by_df_pivot(df_pivot,dict_subSamples:dict[list],listReferenceGeneName:list,listControlSamples:list[list],listFilterOutFoldChanges=['foldChange_POL2A'],SaveDIR='./',ReplaceSampleControlName2ControlStr=False):
   dicts_of_dfSamplegroups = {}
-  for DfName,listsearch in dict_subSamples.items():
-    dicts_of_dfSamplegroups[DfName] = get_sampleNames_from_df_pivot_which_contain_str(df_pivot,listsearch)
+  for DfName,listSearch in dict_subSamples.items():
+    dicts_of_dfSamplegroups[DfName] = get_sampleNames_from_df_pivot_which_contain_str(df_pivot,listSearch)
   dicts_of_dfSamplegroups = create_DataFramesDict_by_sampleNames_from_pivot_Df(df_pivot,dicts_of_dfSamplegroups)
   # Edit each df in dicts_of_dfSamplegroups by related RefrenceGeneName & ControlSamples
 
