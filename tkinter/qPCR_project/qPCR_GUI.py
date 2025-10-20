@@ -217,8 +217,12 @@ def openFoldChangePage():
                 return df, _
         except:
             mb.showerror(title='ReadError',message='Error in "createDF"')
-
     def createDf_and_showIt():
+        def export(dataFrame:qpcr.pd.DataFrame):
+            outputDIR = fd.askdirectory(title='Select Output Directory')
+            if outputDIR:
+                dataFrame.to_csv(outputDIR + "/pivotTable.csv",index=False)
+                mb.showinfo('Done')
         try:
             valuesOfEntriesInFoldChangeWin = [wid.get() for wid in entries]
             skipRows = ast.literal_eval(valuesOfEntriesInFoldChangeWin[4])
@@ -234,6 +238,9 @@ def openFoldChangePage():
                 TopMostBtn = Button(FoldChangeTableWin, text='TopMost', bg='Red',
                                     command=lambda: topMost(FoldChangeTableWin, TopMostBtn))
                 TopMostBtn.pack(side=TOP, anchor='ne')
+                pivotExportBtn = Button(FoldChangeTableWin, text='Export', bg='Green',
+                                    command=lambda: export(df_toShow))
+                pivotExportBtn.pack(side=TOP, anchor='ne')
                 # Create Treeview with DataFrame columns
                 printTableInWindow(FoldChangeTableWin, df_toShow, 'Pivot table')
                 mb.showinfo('Thumbs up', 'Your data is successfully loaded')
@@ -242,6 +249,7 @@ def openFoldChangePage():
             except:
                 # Create Treeview with DataFrame columns
                 printTableInWindow(FoldChangeTableWin, df, 'Whole Data to check')
+                pull_up_wins([window, FoldChangeWin, FoldChangeTableWin])
         except:
             mb.showerror(title='Error in createDf_and_showIt',message='App can not read the excel data')
             pull_up_wins([window, FoldChangeWin])
@@ -287,21 +295,27 @@ def openFoldChangePage():
         helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
     def saveBarPlots():
         valuesOfEntriesInFoldChangeWin = [wid.get() for wid in entries]
-        dict_dfs = ast.literal_eval(valuesOfEntriesInFoldChangeWin[0])
-        listReferenceGeneNames = ast.literal_eval(valuesOfEntriesInFoldChangeWin[1])
-        listControlSamples = ast.literal_eval(valuesOfEntriesInFoldChangeWin[2])
-        listFilterOutFoldChanges = ast.literal_eval(valuesOfEntriesInFoldChangeWin[3])
-        skipRows = ast.literal_eval(valuesOfEntriesInFoldChangeWin[4])
+        try:
+            dict_dfs = ast.literal_eval(valuesOfEntriesInFoldChangeWin[0])
+            listReferenceGeneNames = ast.literal_eval(valuesOfEntriesInFoldChangeWin[1])
+            listControlSamples = ast.literal_eval(valuesOfEntriesInFoldChangeWin[2])
+            listFilterOutFoldChanges = ast.literal_eval(valuesOfEntriesInFoldChangeWin[3])
+            skipRows = ast.literal_eval(valuesOfEntriesInFoldChangeWin[4])
+        except SyntaxError:
+            mb.showerror('SyntaxError',"Please check syntax of 'SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges'")
         sheetName = valuesOfEntriesInFoldChangeWin[5]
+        aggregatedFlag = valuesOfEntriesInFoldChangeWin[6]
         if ListofDfForUseInsaveBarPlots:
             if outputFlagBool.get() == False:
                 outputDIR = fd.askdirectory(title='Select Output Directory')
                 if outputDIR:
-                    qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0],dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,SaveDIR=outputDIR + '/',ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get())
+                    response =qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0],dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,SaveDIR=outputDIR + '/',ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get(),outPutStyle=aggregatedFlag)
+                    mb.showinfo('Done', f'Plot-s are saved in {outputDIR}, Response is {response}')
                 else:
                     mb.showerror(title='Output error when you load data', message='No Directory is selected')
             else:
-                qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0], dict_dfs, listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get())
+                response =qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0], dict_dfs, listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get(),outPutStyle=aggregatedFlag)
+                mb.showinfo('Done', f'Plot-s are saved in {__file__}, Response is {response}')
             ListofDfForUseInsaveBarPlots.clear()
         else:
             df, df_pivot = createDF(sheetName,skipRows)
@@ -322,19 +336,22 @@ def openFoldChangePage():
             sampleNameFlagButton.configure(fg='red')
             SampleNameFlagBool.set(False)
     # create necessary widgets by below lists
-    list_labels = ['SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges','SkipRows','SheetName']
+    list_labels = ['SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges','SkipRows','SheetName',"OutPut"]
     list_placeholders = ["{'df_SIRNA':['CTR','siRNA' ],'df_Starved':['Starved','PC12-EB','VLP1','Differentiated']}",
-                         "[['POL2A'],['POL2A']]", "[['PC12-CTR-SIRNA'], ['PC12-Starved']]", "['foldChange_POL2A']",'38','Results']
+                         "[['POL2A'],['POL2A']]", "[['PC12-CTR-SIRNA'], ['PC12-Starved']]", "['foldChange_POL2A']",'38','Results','Aggregated']
     Button(FoldChangeWin,
-           text='load and show Data Frame',
+           text='load &\n show Data Frame',
            bg='white',
            fg='black',
-           command=createDf_and_showIt).grid(row=0, column=0)
+           command=createDf_and_showIt).grid(row=0, column=0,sticky="W")
     Button(FoldChangeWin,
            text='Help',
            bg='white',
            fg='Green',
            command=showHelp).grid(row=0, column=1,sticky="E")
+    TopMostBtn = Button(FoldChangeWin, text='TopMost', bg='Red',
+                        command=lambda: topMost(FoldChangeWin, TopMostBtn))
+    TopMostBtn.grid(row=0, column=2,sticky="E")
 
     entries=createLabelsEntriesScrulbarsIn_a_page(FoldChangeWin, list_labels, list_placeholders, startGridRow=1)
     # childWidgetsOfFoldChangeWin = FoldChangeWin.grid_slaves()

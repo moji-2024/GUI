@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 # import matplotlib
 # matplotlib.use("TkAgg")
 
@@ -70,7 +71,7 @@ def create_DataFramesDict_by_sampleNames_from_pivot_Df(df_pivot,dict_samples):
   dicts_of_dfSamplegroups = {}
   for k,values in dict_samples.items():
     dicts_of_dfSamplegroups[k] = df_pivot.loc[values]
-    dicts_of_dfSamplegroups[k].dropna(axis=1,inplace=True)
+    dicts_of_dfSamplegroups[k].dropna(axis=1,inplace=True,how='all')
   return dicts_of_dfSamplegroups
 
 
@@ -107,12 +108,78 @@ def changeLabelName2controlStr(sampleControlNames,xlabels):
       else:
         xlabels[ind] = f'Control'
   return xlabels
-def barplot_foldChange(target_key,target_df,listFoldChangeNames,listFilterOutFoldChanges=['foldChange_POL2A'],SaveDIR='./',sampleControlNames=None):
+
+def barplot_AllFoldChanges(target_key,target_df, listFoldChangeNames, remove_controlRefGenes=['foldChange_POL2A'],SaveDIR='./',sampleControlNames=None):
+
+  plt.style.use("default")
+
+  xlabels = list(target_df.index.values)
+  if sampleControlNames:
+    xlabels = changeLabelName2controlStr(sampleControlNames, xlabels)
+
+  fig, ax = plt.subplots(figsize=(15, 10))
+
+  x = np.arange(len(xlabels))  # Base positions
+  width = 0.15  # Width of each bar
+  num_groups = len([col for col in listFoldChangeNames if col not in remove_controlRefGenes])
+
+  for i, foldChange_col in enumerate(listFoldChangeNames):
+    if foldChange_col in remove_controlRefGenes:
+      continue
+
+    values = target_df[foldChange_col].values
+
+    # Plot with group shift: x + i*width
+    ax.bar(x + i * width, values, width=width, label=foldChange_col)
+
+    # Add labels
+    for j, v in enumerate(values):
+      ax.text(x[j] + i * width, v + 0.05 * max(values), f"{v:.2f}",
+              ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+  # Title & axis labels
+  ax.set_title(f"Fold Change across Samples", fontsize=20, fontweight='bold')
+  ax.set_ylabel("Fold Change", fontsize=18, fontweight='bold')
+  ax.set_xlabel("Samples", fontsize=18, fontweight='bold')
+
+  # X-axis labels
+  ax.set_xticks(x + (num_groups - 1) * width / 2)
+  ax.set_xticklabels(xlabels, rotation=45, ha="right", fontsize=14, fontweight='bold')
+
+  # Grid
+  ax.grid(axis="y", linestyle="--", linewidth=0.7, alpha=0.7)
+
+  # Legend
+  ax.legend(
+    title="FoldChange Columns",
+    fontsize=14,  # bigger text
+    title_fontsize=16,  # bigger title
+    loc='upper left',
+    bbox_to_anchor=(1.02, 1),  # Move outside (right side)
+    borderaxespad=0.
+  )
+
+  # Clean spines
+  for spine in ["top", "right"]:
+    ax.spines[spine].set_visible(False)
+
+  plt.tight_layout()
+  output_path = SaveDIR + f'Fold Change across Samples in {target_key}.png'
+  newPath = check_if_outputFile_not_exist_otherwise_return_path(output_path, index=0)
+  plt.savefig(newPath, dpi=300, bbox_inches="tight")
+  print('Done in barplot_AllFoldChanges')
+  # plt.show()
+  if listFoldChangeNames:
+    return True
+  else:
+    return False
+
+
+def barplot_FoldChange(target_key,target_df,listFoldChangeNames,listFilterOutFoldChanges,SaveDIR='./',sampleControlNames=None):
   # White background
   plt.style.use("default")
   # Select xlabels and values
   xlabels = list(target_df.index.values)
-  # later work
   if sampleControlNames:
     xlabels = changeLabelName2controlStr(sampleControlNames, xlabels)
 
@@ -157,7 +224,11 @@ def barplot_foldChange(target_key,target_df,listFoldChangeNames,listFilterOutFol
     newPath = check_if_outputFile_not_exist_otherwise_return_path(output_path,index=0)
     plt.savefig(newPath, dpi=300, bbox_inches="tight")
     # plt.show()
-    print('Done')
+    print('Done in barplot_FoldChange')
+    if listFoldChangeNames:
+      return True
+    else:
+      return False
 def check_if_outputFile_not_exist_otherwise_return_path(path,index=0):
   isfileExist = os.path.isfile(path)
   if isfileExist:
@@ -166,7 +237,11 @@ def check_if_outputFile_not_exist_otherwise_return_path(path,index=0):
     return check_if_outputFile_not_exist_otherwise_return_path(f"{beforeSuffix}_{index+1}{suffix}",index+1)
   else:
     return path
-def savefoldChangePlots_by_df_pivot(df_pivot,dict_subSamples:dict[list],listReferenceGeneName:list,listControlSamples:list[list],listFilterOutFoldChanges=['foldChange_POL2A'],SaveDIR='./',ReplaceSampleControlName2ControlStr=False):
+def savefoldChangePlots_by_df_pivot(df_pivot,dict_subSamples:dict[list],listReferenceGeneName:list,listControlSamples:list[list],listFilterOutFoldChanges=['foldChange_POL2A'],SaveDIR='./',ReplaceSampleControlName2ControlStr=False,outPutStyle='Aggregated'):
+  if outPutStyle == 'Aggregated':
+    outputFunc = barplot_AllFoldChanges
+  else:
+    outputFunc = barplot_FoldChange
   dicts_of_dfSamplegroups = {}
   for DfName,listSearch in dict_subSamples.items():
     dicts_of_dfSamplegroups[DfName] = get_sampleNames_from_df_pivot_which_contain_str(df_pivot,listSearch)
@@ -178,28 +253,29 @@ def savefoldChangePlots_by_df_pivot(df_pivot,dict_subSamples:dict[list],listRefe
     sample_controls = findRowsOrColumnsIndexByPortionName(keyDf_DF[1], listControlSamples[ind], orientation='rows')
     SetFoldChangeNames = create_fold_change_values_and_FoldChange_columnsName(keyDf_DF[1],ref_gene_cols,sample_controls)
     if ReplaceSampleControlName2ControlStr:
-      barplot_foldChange(keyDf_DF[0], keyDf_DF[1], SetFoldChangeNames, listFilterOutFoldChanges, SaveDIR=SaveDIR,
+      outputFunc(keyDf_DF[0], keyDf_DF[1], SetFoldChangeNames, listFilterOutFoldChanges, SaveDIR=SaveDIR,
                          sampleControlNames=sample_controls)
     else:
-      barplot_foldChange(keyDf_DF[0],keyDf_DF[1], SetFoldChangeNames, listFilterOutFoldChanges, SaveDIR=SaveDIR)
+      outputFunc(keyDf_DF[0],keyDf_DF[1], SetFoldChangeNames, listFilterOutFoldChanges, SaveDIR=SaveDIR)
 
 
-def plot_target_foldChangeDFs(path,dict_subSamples:dict[list],listReferenceGeneName:list,listControlSamples:list[list],listFilterOutFoldChanges=['foldChange_POL2A'],SaveDIR='./',ReplaceSampleControlName2ControlStr=False):
+def plot_target_foldChangeDFs(path,dict_subSamples:dict[list],listReferenceGeneName:list,listControlSamples:list[list],listFilterOutFoldChanges=['foldChange_POL2A'],SaveDIR='./',ReplaceSampleControlName2ControlStr=False,outPutStyle='Aggregated'):
   # create df
-  df = pd.read_excel(path,sheet_name='Results',skiprows=38)
+  df = pd.read_excel(path,sheet_name='Results',skiprows=34)
   df = df.dropna(axis=1,how='all')
   # dict_subSamples: dict of samples which must split into different df by substrings of sample names
   df_CT_Result_table, df_CtSD_errors = create_ResultTable_from_df_by_removing_H2O_SampleNames_and_Undetermined_CT_and_create_CtSD_errors_by_filter_CtSD_more_than_0p6(df)
   df_CT_Result_table = remove_outlyer_CTs_from_df_CT_Result_table(df_CT_Result_table,df_CtSD_errors)
   df_pivot = create_pivotTable_from_df_clean_CT_Result_table(df_CT_Result_table)
-  savefoldChangePlots_by_df_pivot(df_pivot, dict_subSamples, listReferenceGeneName, listControlSamples, listFilterOutFoldChanges= listFilterOutFoldChanges, SaveDIR= SaveDIR, ReplaceSampleControlName2ControlStr= ReplaceSampleControlName2ControlStr)
+  savefoldChangePlots_by_df_pivot(df_pivot, dict_subSamples, listReferenceGeneName, listControlSamples, listFilterOutFoldChanges= listFilterOutFoldChanges, SaveDIR= SaveDIR, ReplaceSampleControlName2ControlStr= ReplaceSampleControlName2ControlStr,outPutStyle=outPutStyle)
 
-# path = "./QPCR FH.xls"
+# path = r"C:\drive d\Fatemeh\Qpcr\C1-C6\2025-10-17 c1-c6.xls"
 # path2 = "./Anaysis-second batch sep2 2025.xls"
-# dict_subSamples = {'df_Starved':['Starve','Different']}
-# listRefrenceGeneName = [['pol2a']]
+# dict_subSamples = {'c1-c6':['Starve','Different']}
+# listRefrenceGeneName = [['htrt']]
 # listControlSamples = [['Starved']]
-# plot_target_foldChangeDFs(path,dict_subSamples,listRefrenceGeneName,listControlSamples,ReplaceSampleControlName2ControlStr=True)
+# remove = ['foldChange_HTRT']
+# plot_target_foldChangeDFs(path,dict_subSamples,listRefrenceGeneName,listControlSamples,listFilterOutFoldChanges=remove)
 
 """# Melt curve"""
 
