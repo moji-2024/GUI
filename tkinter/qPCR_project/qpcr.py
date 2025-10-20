@@ -4,19 +4,27 @@ import os
 import numpy as np
 # import matplotlib
 # matplotlib.use("TkAgg")
-
+def editCT2CtMeaninDfAndRemoveRelatedRowsInDfErrorWhenErrorGroupLenIsLessThan3(df_CtSD_errors,df_CT_Result_table):
+  groupedby_sample_target = df_CtSD_errors.groupby(['Sample Name', 'Target Name'], as_index=False)
+  listindex2drop = []
+  for group in groupedby_sample_target:
+    if group[1].shape[0] < 3:
+      df_CT_Result_table.loc[group[1].index, 'CT'] = df_CT_Result_table.loc[group[1].index, 'Ct Mean']
+      listindex2drop.extend(group[1].index.tolist())
+  df_CtSD_errors = df_CtSD_errors.drop(listindex2drop, axis=0)
+  return df_CT_Result_table, df_CtSD_errors
 def create_ResultTable_from_df_by_removing_H2O_SampleNames_and_Undetermined_CT_and_create_CtSD_errors_by_filter_CtSD_more_than_0p6(df_CT_Result_table):
-  df_CT_Result_table = df_CT_Result_table[df_CT_Result_table['Sample Name'] != 'H2O']
-  df_CT_Result_table = df_CT_Result_table[df_CT_Result_table['Sample Name'] != 'h2o']
+  df_CT_Result_table = df_CT_Result_table[~df_CT_Result_table['Sample Name'].str.contains('h2o',case=False, na=False)]
   df_CT_Result_table = df_CT_Result_table[df_CT_Result_table['CT'] != 'Undetermined']
-  df_CtSD_errors = df_CT_Result_table[df_CT_Result_table['Ct SD'] > 0.6][['Well Position','Sample Name','Target Name','CT','Ct SD']]
+  df_CtSD_errors = df_CT_Result_table[df_CT_Result_table['Ct SD'] > 0.6]
+  df_CT_Result_table, df_CtSD_errors = editCT2CtMeaninDfAndRemoveRelatedRowsInDfErrorWhenErrorGroupLenIsLessThan3(df_CtSD_errors,df_CT_Result_table)
   df_CtSD_errors.loc[:,'Ct SD'] = df_CtSD_errors['Ct SD'].round(3)
   return df_CT_Result_table, df_CtSD_errors
 
 def remove_outlyer_CTs_from_df_CT_Result_table(df_CT_Result_table,df_CtSD_errors):
   for ct_sd in df_CtSD_errors['Ct SD'].unique():
-    current_sery = df_CtSD_errors[df_CtSD_errors['Ct SD'] == ct_sd]['CT']
-    outlier = find_outlyer(current_sery.values)
+    currentError = df_CtSD_errors[df_CtSD_errors['Ct SD'] == ct_sd]['CT']
+    outlier = find_outlyer(currentError.values)
     index2drop = df_CtSD_errors[df_CtSD_errors['CT'] == outlier].index
     df_CT_Result_table.drop(index2drop, inplace=True)
   return df_CT_Result_table
@@ -35,7 +43,7 @@ def create_pivotTable_from_df_clean_CT_Result_table(df_CT_Result_table):
   df_pivot = df_CT_Result_table.pivot_table(
     index='Sample Name',
     columns='Target Name',
-    values='CT',
+    values='Ct Mean',
      aggfunc='mean')
   return df_pivot
 def read_excel(path,sheetName='Results',skipRows=38):
@@ -50,8 +58,7 @@ def read_excel(path,sheetName='Results',skipRows=38):
   return df_CT_Result_table, df_pivot
 """**Check Ct SD more than 0.5**"""
 # df_CT_Result_table, df_pivot = read_excel(r"C:\Users\mojij\Downloads\editedSamplenameQpcr2025-10-10.xlsx",sheetName='Results',skipRows=0)
-# print(df_CT_Result_table)
-# print(df_pivot)
+
 
 
 
@@ -72,6 +79,7 @@ def create_DataFramesDict_by_sampleNames_from_pivot_Df(df_pivot,dict_samples):
   for k,values in dict_samples.items():
     dicts_of_dfSamplegroups[k] = df_pivot.loc[values]
     dicts_of_dfSamplegroups[k].dropna(axis=1,inplace=True,how='all')
+    # dicts_of_dfSamplegroups[k].dropna(axis=1,inplace=True,)
   return dicts_of_dfSamplegroups
 
 
@@ -110,7 +118,6 @@ def changeLabelName2controlStr(sampleControlNames,xlabels):
   return xlabels
 
 def barplot_AllFoldChanges(target_key,target_df, listFoldChangeNames, remove_controlRefGenes=['foldChange_POL2A'],SaveDIR='./',sampleControlNames=None):
-
   plt.style.use("default")
 
   xlabels = list(target_df.index.values)
@@ -120,25 +127,36 @@ def barplot_AllFoldChanges(target_key,target_df, listFoldChangeNames, remove_con
   fig, ax = plt.subplots(figsize=(15, 10))
 
   x = np.arange(len(xlabels))  # Base positions
-  width = 0.15  # Width of each bar
-  num_groups = len([col for col in listFoldChangeNames if col not in remove_controlRefGenes])
 
-  for i, foldChange_col in enumerate(listFoldChangeNames):
-    if foldChange_col in remove_controlRefGenes:
-      continue
+  # Filter columns first (remove control genes before counting)
+  filtered_cols = [col for col in listFoldChangeNames if col not in remove_controlRefGenes]
+  num_groups = len(filtered_cols)
+  # Adjust width and total group width to reduce space
+  total_group_width = 0.8  # total width allocated to one sample’s bars
+  width = total_group_width / num_groups
 
+  for i, foldChange_col in enumerate(filtered_cols):
     values = target_df[foldChange_col].values
 
+    # Center the bar groups:
+    offset = (i - (num_groups - 1) / 2) * width
+    positions = x + offset
+
     # Plot with group shift: x + i*width
-    ax.bar(x + i * width, values, width=width, label=foldChange_col)
+    ax.bar(positions, values, width=width, label=foldChange_col)
 
     # Add labels
     for j, v in enumerate(values):
-      ax.text(x[j] + i * width, v + 0.05 * max(values), f"{v:.2f}",
+      ax.text(positions[j], v + 0.05 * max(values), f"{v:.2f}",
               ha='center', va='bottom', fontsize=10, fontweight='bold')
 
   # Title & axis labels
-  ax.set_title(f"Fold Change across Samples", fontsize=20, fontweight='bold')
+  ax.set_title(
+    f"Fold Change across Samples ({target_key})",
+    fontsize=18,
+    fontweight='bold',
+    pad=25  # move title upward
+  )
   ax.set_ylabel("Fold Change", fontsize=18, fontweight='bold')
   ax.set_xlabel("Samples", fontsize=18, fontweight='bold')
 
@@ -175,7 +193,7 @@ def barplot_AllFoldChanges(target_key,target_df, listFoldChangeNames, remove_con
     return False
 
 
-def barplot_FoldChange(target_key,target_df,listFoldChangeNames,listFilterOutFoldChanges,SaveDIR='./',sampleControlNames=None):
+def barplot_FoldChange(target_key,target_df,listFoldChangeNames,remove_controlRefGenes=[],SaveDIR='./',sampleControlNames=None):
   # White background
   plt.style.use("default")
   # Select xlabels and values
@@ -183,10 +201,9 @@ def barplot_FoldChange(target_key,target_df,listFoldChangeNames,listFilterOutFol
   if sampleControlNames:
     xlabels = changeLabelName2controlStr(sampleControlNames, xlabels)
 
-
-  for foldChange_col in listFoldChangeNames:
-    if foldChange_col in listFilterOutFoldChanges:
-      continue
+  # Filter columns first (remove control genes before counting)
+  filtered_cols = [col for col in listFoldChangeNames if col not in remove_controlRefGenes]
+  for foldChange_col in filtered_cols:
     values = target_df[foldChange_col].values
 
     fig, ax = plt.subplots(figsize=(15, 10))
@@ -257,12 +274,11 @@ def savefoldChangePlots_by_df_pivot(df_pivot,dict_subSamples:dict[list],listRefe
                          sampleControlNames=sample_controls)
     else:
       outputFunc(keyDf_DF[0],keyDf_DF[1], SetFoldChangeNames, listFilterOutFoldChanges, SaveDIR=SaveDIR)
-
-
 def plot_target_foldChangeDFs(path,dict_subSamples:dict[list],listReferenceGeneName:list,listControlSamples:list[list],listFilterOutFoldChanges=['foldChange_POL2A'],SaveDIR='./',ReplaceSampleControlName2ControlStr=False,outPutStyle='Aggregated'):
   # create df
   df = pd.read_excel(path,sheet_name='Results',skiprows=34)
   df = df.dropna(axis=1,how='all')
+  df = df[['Well Position','Sample Name','Target Name','CT','Ct Mean','Ct SD']]
   # dict_subSamples: dict of samples which must split into different df by substrings of sample names
   df_CT_Result_table, df_CtSD_errors = create_ResultTable_from_df_by_removing_H2O_SampleNames_and_Undetermined_CT_and_create_CtSD_errors_by_filter_CtSD_more_than_0p6(df)
   df_CT_Result_table = remove_outlyer_CTs_from_df_CT_Result_table(df_CT_Result_table,df_CtSD_errors)
@@ -270,12 +286,18 @@ def plot_target_foldChangeDFs(path,dict_subSamples:dict[list],listReferenceGeneN
   savefoldChangePlots_by_df_pivot(df_pivot, dict_subSamples, listReferenceGeneName, listControlSamples, listFilterOutFoldChanges= listFilterOutFoldChanges, SaveDIR= SaveDIR, ReplaceSampleControlName2ControlStr= ReplaceSampleControlName2ControlStr,outPutStyle=outPutStyle)
 
 # path = r"C:\drive d\Fatemeh\Qpcr\C1-C6\2025-10-17 c1-c6.xls"
-# path2 = "./Anaysis-second batch sep2 2025.xls"
-# dict_subSamples = {'c1-c6':['Starve','Different']}
+# dict_subSamples = {'c1-c6':['Control-EB','CMV-ING3']}
 # listRefrenceGeneName = [['htrt']]
-# listControlSamples = [['Starved']]
+# listControlSamples = [['Control-EB']]
 # remove = ['foldChange_HTRT']
 # plot_target_foldChangeDFs(path,dict_subSamples,listRefrenceGeneName,listControlSamples,listFilterOutFoldChanges=remove)
+
+# path = r"C:\drive d\Fatemeh\Qpcr\2025-10-10\2025-10-10 120605 (2).xls"
+# dict_subSamples = {'PC12Diff':['b7-starved','b10-4diff','b12-8 diff']}
+# listRefrenceGeneName = [['hprt']]
+# listControlSamples = [['b7-starved']]
+# remove = ['foldChange_hprt']
+# plot_target_foldChangeDFs(path,dict_subSamples,listRefrenceGeneName,listControlSamples,ReplaceSampleControlName2ControlStr=True,listFilterOutFoldChanges=remove)
 
 """# Melt curve"""
 
