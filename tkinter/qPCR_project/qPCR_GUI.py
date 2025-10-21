@@ -92,7 +92,7 @@ def connect_scrollbar_to_widget(window_, widget, row_scr_vertical=0, column_scr_
 
 def add_placeholder(entry, placeholder,focusInColor='red'):
     entry.insert(0, placeholder)
-    entry.config(fg='grey')  # placeholder color
+    entry.config(fg='Grey')  # placeholder color
 
     def on_focus_in(event):
         if entry.get() == placeholder:
@@ -102,7 +102,7 @@ def add_placeholder(entry, placeholder,focusInColor='red'):
     def on_focus_out(event):
         if not entry.get():
             entry.insert(0, placeholder)
-            entry.config(fg='grey')
+            entry.config(fg='Grey')
 
     entry.bind("<FocusIn>", on_focus_in)
     entry.bind("<FocusOut>", on_focus_out)
@@ -196,9 +196,26 @@ def topMost(win_root,Btn):
         Btn.config(bg='Red')
     else:
         Btn.config(bg='Green')
+
+def showHelp(root, text):
+    helpWin = create_top_window(root_win=root, title='Instruction',
+                                geometry='600x200+400+100',
+                                width=False, height=False, GrabFlag=False)
+    helpWin.focus_set()
+    helpText = Text(helpWin, width=40, height=25, font=("Arial", 12),wrap='word')
+
+    helpText.insert(0.0, text)
+    text_vertical_scrollbar, text_horizontal_scrollbar = connect_scrollbar_to_widget(helpWin, helpText,
+                                                                                     row_scr_vertical=None,
+                                                                                     row_scr_horizontal=None,
+                                                                                     scr_horizontal=True)
+    text_vertical_scrollbar.pack(side="right", fill="y")
+    text_horizontal_scrollbar.pack(side="bottom", fill="x")
+    helpText.pack(fill="both", expand=True)
+    helpText.configure(state='disabled')
+    helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
 # '-------------------------------main functions---------------------------'
 def openFoldChangePage():
-    outputFlagBool = BooleanVar()
     SampleNameFlagBool = BooleanVar()
     FoldChangeWin = create_top_window(root_win=window, title='Fold Change window', geometry='', width=False, height=False,
                       GrabFlag=False)
@@ -208,7 +225,7 @@ def openFoldChangePage():
                                            filetypes=[('exel files', "*.xlsx"), ('exel files', "*.xls"), ])
         try:
             try:
-                df, df_pivot = qpcr.read_excel(excelFilePath,sheetName=sheetName,skipRows=skipRows)
+                df, df_pivot = qpcr.readExcelAndCreatePivotCT(excelFilePath,sheetName=sheetName,skipRows=skipRows)
                 ListofDfForUseInsaveBarPlots.clear()
                 ListofDfForUseInsaveBarPlots.append(df_pivot)
                 return df, df_pivot
@@ -253,46 +270,6 @@ def openFoldChangePage():
         except:
             mb.showerror(title='Error in createDf_and_showIt',message='App can not read the excel data')
             pull_up_wins([window, FoldChangeWin])
-    def showHelp():
-        helpWin = create_top_window(root_win=FoldChangeWin, title='Instruction',
-                                               geometry='600x200+400+100',
-                                               width=False, height=False,GrabFlag=False )
-        helpWin.focus_set()
-        helpText = Text(helpWin, width=40, height=25, font=("Arial", 12))
-        text = '''This function creates a Fold Change bar plot for a gene of interest.
-
-        -   X-axis: Sample names
-
-        -   Y-axis: Fold change
-
-        Parameters:
-
-        -   SubTables: A Python dictionary mapping sub-table names (e.g., df_SIRNA, df_Starved) to lists of sample identifiers.
-
-        -   RefGeneNames: A nested Python list of reference gene names (e.g., [['POL2A'], ['POL2A']]).
-
-        -   ControlSamples: A nested Python list of control sample names (e.g., [['PC12-CTR-SIRNA'], ['PC12-Starved']]).
-
-        -   FilterOutFoldChanges: A list of fold-change identifiers to filter out (e.g., ['foldChange_POL2A']).
-
-        Notes:
-
-        -   Placeholders in each entry indicate the expected data type and can be customized with your specific experiment settings.
-            The output directory flag (bottom-right corner of the interface) controls where plots are saved:
-
-           -    Red (default): You must specify your desired output directory.
-
-           -    Green (when clicked): The program automatically uses the current app location as the output directory.'''
-        helpText.insert(0.0,text)
-        text_vertical_scrollbar, text_horizontal_scrollbar = connect_scrollbar_to_widget(helpWin, helpText,
-                                                                               row_scr_vertical=None,
-                                                                               row_scr_horizontal=None,
-                                                                               scr_horizontal=True)
-        text_vertical_scrollbar.pack(side="right", fill="y")
-        text_horizontal_scrollbar.pack(side="bottom", fill="x")
-        helpText.pack(fill="both", expand=True)
-        helpText.configure(state='disabled')
-        helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
     def saveBarPlots():
         valuesOfEntriesInFoldChangeWin = [wid.get() for wid in entries]
         try:
@@ -305,8 +282,9 @@ def openFoldChangePage():
             mb.showerror('SyntaxError',"Please check syntax of 'SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges'")
         sheetName = valuesOfEntriesInFoldChangeWin[5]
         aggregatedFlag = valuesOfEntriesInFoldChangeWin[6]
+        outputFlagStr = valuesOfEntriesInFoldChangeWin[6]
         if ListofDfForUseInsaveBarPlots:
-            if outputFlagBool.get() == False:
+            if outputFlagStr == 'YES':
                 outputDIR = fd.askdirectory(title='Select Output Directory')
                 if outputDIR:
                     response =qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0],dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,SaveDIR=outputDIR + '/',ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get(),outPutStyle=aggregatedFlag)
@@ -321,13 +299,6 @@ def openFoldChangePage():
             df, df_pivot = createDF(sheetName,skipRows)
             saveBarPlots()
         pull_up_wins([FoldChangeWin])
-    def changeOutputFlag():
-        if outputFlagBool.get() == False:
-            DirFlagButton.configure(fg='green',text='Output directory is:\n where your app located')
-            outputFlagBool.set(True)
-        else:
-            DirFlagButton.configure(fg='red',text='Output directory is:\n not where your app located')
-            outputFlagBool.set(False)
     def changeSampleName2ControlFlag():
         if SampleNameFlagBool.get() == False:
             sampleNameFlagButton.configure(fg='green')
@@ -336,9 +307,32 @@ def openFoldChangePage():
             sampleNameFlagButton.configure(fg='red')
             SampleNameFlagBool.set(False)
     # create necessary widgets by below lists
-    list_labels = ['SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges','SkipRows','SheetName',"OutPut"]
+    text = '''This function creates a Fold Change bar plot for a gene of interest.
+
+            -   X-axis: Sample names
+
+            -   Y-axis: Fold change
+
+            Parameters:
+
+            -   SubTables: A Python dictionary mapping sub-table names (e.g., df_SIRNA, df_Starved) to lists of sample identifiers.
+
+            -   RefGeneNames: A nested Python list of reference gene names (e.g., [['POL2A'], ['POL2A']]).
+
+            -   ControlSamples: A nested Python list of control sample names (e.g., [['PC12-CTR-SIRNA'], ['PC12-Starved']]).
+
+            -   FilterOutFoldChanges: A list of fold-change identifiers to filter out (e.g., ['foldChange_POL2A']).
+
+            Notes:
+
+            -   Placeholders in each entry indicate the expected data and can be customized with your specific experiment settings.
+                The Choose output directory controls where plots will be save:
+
+               -    Yes: You must specify your desired output directory.
+               -    No: The program automatically uses the current app location as the output directory.'''
+    list_labels = ['SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges','SkipRows','SheetName',"OutPutType","ChooseOutputDirectory"]
     list_placeholders = ["{'df_SIRNA':['CTR','siRNA' ],'df_Starved':['Starved','PC12-EB','VLP1','Differentiated']}",
-                         "[['POL2A'],['POL2A']]", "[['PC12-CTR-SIRNA'], ['PC12-Starved']]", "['foldChange_POL2A']",'38','Results','Aggregated']
+                         "[['POL2A'],['POL2A']]", "[['PC12-CTR-SIRNA'], ['PC12-Starved']]", "['foldChange_POL2A']",'38','Results','Aggregated','YES']
     Button(FoldChangeWin,
            text='load &\n show Data Frame',
            bg='white',
@@ -348,14 +342,13 @@ def openFoldChangePage():
            text='Help',
            bg='white',
            fg='Green',
-           command=showHelp).grid(row=0, column=1,sticky="E")
+           command=lambda :showHelp(FoldChangeWin,text)).grid(row=0, column=1,sticky="E")
     TopMostBtn = Button(FoldChangeWin, text='TopMost', bg='Red',
                         command=lambda: topMost(FoldChangeWin, TopMostBtn))
     TopMostBtn.grid(row=0, column=2,sticky="E")
 
     entries=createLabelsEntriesScrulbarsIn_a_page(FoldChangeWin, list_labels, list_placeholders, startGridRow=1)
     # childWidgetsOfFoldChangeWin = FoldChangeWin.grid_slaves()
-    # biggistRowUntilNow = max(childWidget.grid_info()["row"] for childWidget in childWidgetsOfFoldChangeWin)
     _ , biggistRowUntilNow = getBiggestRow_and_colIndex(FoldChangeWin)
     Button(FoldChangeWin,
            text='Save bar plots',
@@ -363,13 +356,6 @@ def openFoldChangePage():
            fg='Green',
            font=('times',20),
            command=saveBarPlots).grid(row=biggistRowUntilNow + 1, column=0, sticky="W")
-    DirFlagButton = Button(FoldChangeWin,
-           text= 'Output directory is:\n not where your app located',
-           bg='black',
-           fg='red',
-           font=('times', 10),
-           command=changeOutputFlag)
-    DirFlagButton.grid(row=biggistRowUntilNow + 1, column=1, sticky="E")
     sampleNameFlagButton = Button(FoldChangeWin,
            text='SampleControlStr\nAsNameFlag',
            bg='black',
@@ -379,8 +365,93 @@ def openFoldChangePage():
     sampleNameFlagButton.grid(row=biggistRowUntilNow + 1, column=1, sticky="W")
     
 def openMeltCurvePage():
-    meltCurveWin = create_top_window(root_win=window, title='Melt Curve window', geometry='600x200+400+100', width=False, height=False,
-                                      flag_topLevel=False)
+    meltCurveWin = create_top_window(root_win=window, title='Melt Curve window', geometry='', width=False, height=False,
+                                      GrabFlag=False)
+    # create necessary widgets by below lists
+    list_labels = ['wellPositions', 'SampleNames','TargetNames', 'SkipRows', 'SheetNames', "ChooseOutputDirectory"]
+    list_placeholders = ["B2,B3","Sample1,Sample2","Gene2,Gene3", '34', 'Melt Curve Raw Data, Results', 'YES']
+    def savecurvePlots():
+        valuesOfEntriesInFoldChangeWin = [(wid.get(),wid.cget("fg")) for wid in entries]
+        # check cget of fg
+        if valuesOfEntriesInFoldChangeWin[0][1] == 'Grey':
+            wellPositions = []
+        else:
+            wellPositions = [val.strip() for val in valuesOfEntriesInFoldChangeWin[0][0].split(',')]
+        if valuesOfEntriesInFoldChangeWin[1][1] == 'Grey':
+            SampleNames = []
+        else: SampleNames = [val.strip() for val in valuesOfEntriesInFoldChangeWin[1][0].split(',')]
+        if valuesOfEntriesInFoldChangeWin[2][1] == 'Grey':
+            TargetNames = []
+        else: TargetNames = [val.strip() for val in valuesOfEntriesInFoldChangeWin[2][0].split(',')]
+        SkipRows = valuesOfEntriesInFoldChangeWin[3][0]
+        SheetNames = [val.strip() for val in valuesOfEntriesInFoldChangeWin[4][0].split(',')]
+        ChooseOutputDirectory = valuesOfEntriesInFoldChangeWin[5][0]
+        excelFilePath = fd.askopenfilename(title='select file',
+                                           filetypes=[('exel files', "*.xlsx"), ('exel files', "*.xls"), ])
+
+        try:
+            if excelFilePath:
+                if ChooseOutputDirectory == 'YES':
+                    outputDIR = fd.askdirectory(title='Select Output Directory')
+                    if outputDIR:
+                        qpcr.readqpcrExcel_filterMeltDf_saveFigureInOutputDIR(excelFilePath, SkipRows, SheetNames, wellPositions,
+                                                                      SampleNames, TargetNames, outputDIR=outputDIR)
+                        mb.showinfo('Done', f'Plot is saved in {outputDIR}')
+                    else:
+                        mb.showerror(title='Output error', message='No Directory is selected')
+                else:
+                    qpcr.readqpcrExcel_filterMeltDf_saveFigureInOutputDIR(excelFilePath, SkipRows, SheetNames,
+                                                                          wellPositions,
+                                                                          SampleNames, TargetNames,)
+                    mb.showinfo('Done', f'Plot is saved in {__file__}')
+            else:
+                mb.showerror(title='Input error', message='No data is selected')
+        except:
+            mb.showerror(title='Syntax Error', message='Inserted data is not match with input excel file')
+        pull_up_wins([window,meltCurveWin])
+    TopMostBtn = Button(meltCurveWin, text='TopMost', bg='Red',
+                        command=lambda: topMost(meltCurveWin, TopMostBtn))
+    TopMostBtn.grid(row=0, column=2, sticky="E")
+    entries = createLabelsEntriesScrulbarsIn_a_page(meltCurveWin, list_labels, list_placeholders, startGridRow=1)
+    # childWidgetsOfFoldChangeWin = FoldChangeWin.grid_slaves()
+    _, biggistRowUntilNow = getBiggestRow_and_colIndex(meltCurveWin)
+    Button(meltCurveWin,
+           text='Save bar plots',
+           bg='black',
+           fg='Green',
+           font=('times', 20),
+           command=savecurvePlots).grid(row=biggistRowUntilNow + 1, column=0, sticky="W")
+    Button(meltCurveWin,
+           text='Help',
+           bg='white',
+           fg='Green',
+           command=lambda :showHelp(meltCurveWin,app_description)).grid(row=biggistRowUntilNow + 1, column=1, sticky="E")
+    app_description = """1. This app is designed to generate image plots of qPCR MeltCurve data directly from Excel files. 
+       It allows users to visualize melt curve profiles for all wells or specific samples and targets based on user input.
+
+       2. Main Features:
+
+          • Excel File Selection:
+            The app prompts the user to select an Excel file containing MeltCurve data (.xlsx or .xls format).
+
+          • Customizable Parameters:
+
+            - Skip Rows: Users can specify how many initial rows to skip when reading the Excel file 
+              (useful if headers or notes exist above the data).
+
+            - Sheet Names: Users must enter two sheet names (comma-separated) to process specific sheets within the file.
+
+            - Well Positions, Sample Names, Target Names:
+              If these fields are left empty, the app plots all MeltCurve data from the file.
+              If any of these are specified, the app filters the data and plots only the selected wells, 
+              samples, or targets.
+
+          • Output Directory Options:
+
+            - If “Choose Output Directory” is set to YES, the user can select a custom folder 
+              where all generated plots will be saved.
+            - If set to NO, the plots are saved in the current script directory."""
+
 
 def OpenSampleDataPage():
     all_sheets = readWholeexcel(samplePath,sheetName=None)
