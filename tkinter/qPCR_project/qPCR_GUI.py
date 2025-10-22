@@ -474,7 +474,7 @@ def OpenSampleDataPage():
 # '-----------------------setup------------------------------'
 
 # '-----------------------create main window------------------------------'
-window = create_top_window(title='Receipt', geometry='710x600+300+45', flag_topLevel=False)
+window = create_top_window(title='BioTools', geometry='710x600+300+45', flag_topLevel=False)
 # '-------------------------------initialization---------------------------'
 
 # '-------------------------------frame---------------------------'
@@ -511,3 +511,4 @@ Functions_menu_but, menu_seller = create_menu_drop_down(TopFramInRootWin, {'Fold
 # '-------------------------------binding---------------------------'
 window.bind('<Destroy>', win_destroy)
 window.mainloop()
+
