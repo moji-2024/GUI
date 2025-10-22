@@ -311,20 +311,6 @@ def plot_target_foldChangeDFs(path, dict_subSamples: dict[list], listReferenceGe
                                     outPutStyle=outPutStyle)
 
 
-# path = r"C:\drive d\Fatemeh\Qpcr\C1-C6\2025-10-17 c1-c6.xls"
-# dict_subSamples = {'c1-c6':['Control-EB','CMV-ING3']}
-# listRefrenceGeneName = [['htrt']]
-# listControlSamples = [['Control-EB']]
-# remove = ['foldChange_HTRT']
-# plot_target_foldChangeDFs(path,dict_subSamples,listRefrenceGeneName,listControlSamples,listFilterOutFoldChanges=remove)
-
-# path = r"C:\drive d\Fatemeh\Qpcr\2025-10-10\2025-10-10 120605 (2).xls"
-# dict_subSamples = {'PC12Diff':['b7-starved','b10-4diff','b12-8 diff']}
-# listRefrenceGeneName = [['hprt']]
-# listControlSamples = [['b7-starved']]
-# remove = ['foldChange_hprt']
-# plot_target_foldChangeDFs(path,dict_subSamples,listRefrenceGeneName,listControlSamples,ReplaceSampleControlName2ControlStr=True,listFilterOutFoldChanges=remove)
-
 """# Melt curve"""
 
 
@@ -360,7 +346,6 @@ def saveMeltCurve(dfMeltCurve,dfCT,outputDIR:str):
     plt.tight_layout()
     plt.savefig(outputDIR, dpi=300, bbox_inches="tight")
     # plt.show()
-# saveMeltCurve(df1,'outputDIR')
 def readqpcrExcel_filterMeltDf_saveFigureInOutputDIR(path,skipRows,SheetNames,WellPositions,SampleNames,TargetNames,outputDIR='./'):
     skipRows = int(skipRows)
     dictDfs = pd.read_excel(path, sheet_name=SheetNames, skiprows=skipRows)
@@ -372,16 +357,4 @@ def readqpcrExcel_filterMeltDf_saveFigureInOutputDIR(path,skipRows,SheetNames,We
     saveMeltCurve(filtered,dfCT, newoutputPath)
 path = r"C:\drive d\Fatemeh\Qpcr\2025-10-10\2025-10-10 120605 (2).xls"
 SheetNames = ['Melt Curve Raw Data','Results']
-readqpcrExcel_filterMeltDf_saveFigureInOutputDIR(path,'34',SheetNames,['B2'],SampleNames=[],TargetNames=[],outputDIR='./')
-#
-# def get_sampleNames_by_Well_Position(Well_Position):
-#   return df[df['Well Position'] == Well_Position]['Sample Name'].values[0]
-# get_sampleNames_by_Well_Position('B2')
-#
-# meltCurve_df['Sample Name'] = meltCurve_df.apply(lambda row: get_sampleNames_by_Well_Position(row['Well Position']),axis=1)
-# meltCurve_df.head()
-#
-# plt.plot(meltCurve_df['Temperature'],meltCurve_df['Derivative'])
-# plt.show()
-#
-# df.head()
+
