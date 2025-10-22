@@ -71,10 +71,8 @@ def readExcelAndCreatePivotCT(path, sheetName='Results', skipRows=38):
     return df_CT_Result_table, df_pivot
 
 
-"""**Check Ct SD more than 0.5**"""
+"""**Check Ct SD more than 0.6**"""
 
-
-# df_CT_Result_table, df_pivot = readExcelAndCreatePivotCT(r"C:\Users\mojij\Downloads\editedSamplenameQpcr2025-10-10.xlsx",sheetName='Results',skipRows=0)
 
 
 def get_sampleNames_from_df_pivot_which_contain_str(dataFrame, list_str):
@@ -198,7 +196,7 @@ def barplot_AllFoldChanges(target_key, target_df, listFoldChangeNames, remove_co
     output_path = SaveDIR + f'Fold Change across Samples in {target_key}.png'
     newPath = check_if_outputFile_not_exist_otherwise_return_path(output_path, index=0)
     plt.savefig(newPath, dpi=300, bbox_inches="tight")
-    print('Done in barplot_AllFoldChanges')
+    # print('Done in barplot_AllFoldChanges')
     plt.show()
     if listFoldChangeNames:
         return True
@@ -255,7 +253,7 @@ def barplot_FoldChange(target_key, target_df, listFoldChangeNames, remove_contro
         newPath = check_if_outputFile_not_exist_otherwise_return_path(output_path, index=0)
         plt.savefig(newPath, dpi=300, bbox_inches="tight")
         # plt.show()
-        print('Done in barplot_FoldChange')
+        # print('Done in barplot_FoldChange')
         if listFoldChangeNames:
             return True
         else:
@@ -355,6 +353,4 @@ def readqpcrExcel_filterMeltDf_saveFigureInOutputDIR(path,skipRows,SheetNames,We
     outputPath = outputDIR + 'meltCurve.png'
     newoutputPath = check_if_outputFile_not_exist_otherwise_return_path(outputPath, index=0)
     saveMeltCurve(filtered,dfCT, newoutputPath)
-path = r"C:\drive d\Fatemeh\Qpcr\2025-10-10\2025-10-10 120605 (2).xls"
-SheetNames = ['Melt Curve Raw Data','Results']
 
