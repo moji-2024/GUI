@@ -214,6 +214,35 @@ def showHelp(root, text):
     helpText.pack(fill="both", expand=True)
     helpText.configure(state='disabled')
     helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
+
+
+def export(dataFrame: qpcr.pd.DataFrame, ExcelFileName):
+    outputDIR = fd.askdirectory(title='Select Output Directory')
+    if outputDIR:
+        dataFrame.to_csv(outputDIR + f"/pivotTable_{ExcelFileName}.csv", index=False)
+        mb.showinfo('Done')
+def showTableInTreeObj(rootWin,df_toShow,ExcelFileName='', exportBtnFlag=True,showType='pivot'):
+    FoldChangeTableWin = create_top_window(root_win=rootWin, title='Table of Fold Change window',
+                                           geometry='600x250+400+100',
+                                           width=False, height=False, GrabFlag=False)
+    if showType == 'pivot':
+        # create Btn to keep page on top
+        TopMostBtn = Button(FoldChangeTableWin, text='TopMost', bg='Red',
+                            command=lambda: topMost(FoldChangeTableWin, TopMostBtn))
+        TopMostBtn.pack(side=TOP, anchor='ne')
+        if exportBtnFlag:
+            pivotExportBtn = Button(FoldChangeTableWin, text='Export', bg='Green',
+                                    command=lambda: export(df_toShow, ExcelFileName))
+            pivotExportBtn.pack(side=TOP, anchor='ne')
+        # Create Treeview with DataFrame columns
+        printTableInWindow(FoldChangeTableWin, df_toShow, 'Pivot table')
+        mb.showinfo('Thumbs up', 'Your data is successfully loaded')
+        # pull up windows in correct order
+        pull_up_wins([window, rootWin, FoldChangeTableWin])
+    else:
+        # Create Treeview with DataFrame columns
+        printTableInWindow(FoldChangeTableWin, df_toShow, 'Whole Data to check')
+        pull_up_wins([window, rootWin, FoldChangeTableWin])
 # '-------------------------------main functions---------------------------'
 def openFoldChangePage():
     SampleNameFlagBool = BooleanVar()
@@ -223,52 +252,32 @@ def openFoldChangePage():
     def createDF(sheetName,skipRows):
         excelFilePath = fd.askopenfilename(title='select file',
                                            filetypes=[('exel files', "*.xlsx"), ('exel files', "*.xls"), ])
+
         try:
+            excelFileName = os.path.splitext(os.path.splitext(excelFilePath)[1])[1]
             try:
                 df, df_pivot = qpcr.readExcelAndCreatePivotCT(excelFilePath,sheetName=sheetName,skipRows=skipRows)
                 ListofDfForUseInsaveBarPlots.clear()
                 ListofDfForUseInsaveBarPlots.append(df_pivot)
-                return df, df_pivot
+                return df, df_pivot, excelFileName, 'Yes'
             except:
                 df = readWholeexcel(excelFilePath,sheetName)
-                return df, _
+                return df, 'No_pivot', excelFileName, 'NO'
         except:
             mb.showerror(title='ReadError',message='Error in "createDF"')
     def createDf_and_showIt():
-        def export(dataFrame:qpcr.pd.DataFrame):
-            outputDIR = fd.askdirectory(title='Select Output Directory')
-            if outputDIR:
-                dataFrame.to_csv(outputDIR + "/pivotTable.csv",index=False)
-                mb.showinfo('Done')
         try:
             valuesOfEntriesInFoldChangeWin = [wid.get() for wid in entries]
             skipRows = ast.literal_eval(valuesOfEntriesInFoldChangeWin[4])
             sheetName = valuesOfEntriesInFoldChangeWin[5]
-            df, df_pivot = createDF(sheetName, skipRows)
-            FoldChangeTableWin = create_top_window(root_win=FoldChangeWin, title='Table of Fold Change window',
-                                                   geometry='600x250+400+100',
-                                                   width=False, height=False, GrabFlag=False)
-            try:
-                # create df_toShow by .reset_index() which add indexes to a new column and reset indexes to int
+            df, df_pivot, ExcelFileName,expectedData = createDF(sheetName, skipRows)
+            if expectedData == 'Yes':
                 df_toShow = df_pivot.reset_index()
-                # create Btn to keep page on top
-                TopMostBtn = Button(FoldChangeTableWin, text='TopMost', bg='Red',
-                                    command=lambda: topMost(FoldChangeTableWin, TopMostBtn))
-                TopMostBtn.pack(side=TOP, anchor='ne')
-                pivotExportBtn = Button(FoldChangeTableWin, text='Export', bg='Green',
-                                    command=lambda: export(df_toShow))
-                pivotExportBtn.pack(side=TOP, anchor='ne')
-                # Create Treeview with DataFrame columns
-                printTableInWindow(FoldChangeTableWin, df_toShow, 'Pivot table')
-                mb.showinfo('Thumbs up', 'Your data is successfully loaded')
-                # pull up windows in correct order
-                pull_up_wins([window, FoldChangeWin, FoldChangeTableWin])
-            except:
-                # Create Treeview with DataFrame columns
-                printTableInWindow(FoldChangeTableWin, df, 'Whole Data to check')
-                pull_up_wins([window, FoldChangeWin, FoldChangeTableWin])
+                showTableInTreeObj(FoldChangeWin, df_toShow, ExcelFileName, exportBtnFlag=True)
+            else:
+                showTableInTreeObj(FoldChangeWin, df, ExcelFileName, exportBtnFlag=True,showType='whole')
         except:
-            mb.showerror(title='Error in createDf_and_showIt',message='App can not read the excel data')
+            mb.showerror(title='Input data Error',message='App can not read the excel data. Check data structure')
             pull_up_wins([window, FoldChangeWin])
     def saveBarPlots():
         valuesOfEntriesInFoldChangeWin = [wid.get() for wid in entries]
@@ -282,22 +291,27 @@ def openFoldChangePage():
             mb.showerror('SyntaxError',"Please check syntax of 'SubTabels', 'RefGeneNames', 'ControlSamples', 'FilterOutFoldChanges'")
         sheetName = valuesOfEntriesInFoldChangeWin[5]
         aggregatedFlag = valuesOfEntriesInFoldChangeWin[6]
-        outputFlagStr = valuesOfEntriesInFoldChangeWin[6]
+        Flag_chooseOutputDIR = valuesOfEntriesInFoldChangeWin[7]
         if ListofDfForUseInsaveBarPlots:
-            if outputFlagStr == 'YES':
+            if Flag_chooseOutputDIR == 'YES':
                 outputDIR = fd.askdirectory(title='Select Output Directory')
                 if outputDIR:
                     response =qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0],dict_dfs,listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,SaveDIR=outputDIR + '/',ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get(),outPutStyle=aggregatedFlag)
                     mb.showinfo('Done', f'Plot-s are saved in {outputDIR}, Response is {response}')
+                    ListofDfForUseInsaveBarPlots.clear()
                 else:
                     mb.showerror(title='Output error when you load data', message='No Directory is selected')
             else:
                 response =qpcr.savefoldChangePlots_by_df_pivot(ListofDfForUseInsaveBarPlots[0], dict_dfs, listReferenceGeneNames,listControlSamples,listFilterOutFoldChanges=listFilterOutFoldChanges,ReplaceSampleControlName2ControlStr=SampleNameFlagBool.get(),outPutStyle=aggregatedFlag)
                 mb.showinfo('Done', f'Plot-s are saved in {__file__}, Response is {response}')
-            ListofDfForUseInsaveBarPlots.clear()
+                ListofDfForUseInsaveBarPlots.clear()
         else:
-            df, df_pivot = createDF(sheetName,skipRows)
-            saveBarPlots()
+            try:
+                df, df_pivot, excelFileName = createDF(sheetName,skipRows)
+                saveBarPlots()
+            except:
+                mb.showerror(title='Input error', message='Shape of data is not aligned with App expected')
+
         pull_up_wins([FoldChangeWin])
     def changeSampleName2ControlFlag():
         if SampleNameFlagBool.get() == False:
@@ -306,6 +320,22 @@ def openFoldChangePage():
         else:
             sampleNameFlagButton.configure(fg='red')
             SampleNameFlagBool.set(False)
+    def importPivotTable():
+        CsvFilePath = fd.askopenfilename(title='select file',filetypes=[('csv files', "*.csv"), ])
+        if CsvFilePath:
+            try:
+                df_toShow = qpcr.pd.read_csv(CsvFilePath)
+                showTableInTreeObj(FoldChangeWin, df_toShow, exportBtnFlag=False, showType='pivot')
+                df_toPlot = df_toShow.copy()
+                df_toPlot.index = df_toPlot['Sample Name']
+                df_toPlot = df_toPlot.drop(columns=['Sample Name'])
+                ListofDfForUseInsaveBarPlots.clear()
+                ListofDfForUseInsaveBarPlots.append(df_toPlot)
+            except:
+                print(df_toPlot)
+                mb.showerror(title='Input error in importPivotTable', message='Shape of data is not aligned with App expected.')
+
+
     # create necessary widgets by below lists
     text = '''This function creates a Fold Change bar plot for a gene of interest.
 
@@ -363,6 +393,12 @@ def openFoldChangePage():
            font=('times', 10),
            command=lambda :changeSampleName2ControlFlag())
     sampleNameFlagButton.grid(row=biggistRowUntilNow + 1, column=1, sticky="W")
+    Button(FoldChangeWin,
+           text='Import Pivot Table',
+           bg='black',
+           fg='Green',
+           font=('times', 20),
+           command=importPivotTable).grid(row=biggistRowUntilNow + 1, column=2, sticky="W")
     
 def openMeltCurvePage():
     meltCurveWin = create_top_window(root_win=window, title='Melt Curve window', geometry='', width=False, height=False,
@@ -511,4 +547,3 @@ Functions_menu_but, menu_seller = create_menu_drop_down(TopFramInRootWin, {'Fold
 # '-------------------------------binding---------------------------'
 window.bind('<Destroy>', win_destroy)
 window.mainloop()
-
