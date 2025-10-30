@@ -13,31 +13,55 @@ def find_keyword(key, list_skills):
 
 
 
-def find_moreThanOneWordINKeywordPhrase(listKeywords):
-  return [phrase for phrase in listKeywords if len(phrase.split()) > 1]
-def find_OneWordINKeywordPhrase(listKeywords):
-  return  [phrase for phrase in listKeywords if len(phrase.split()) == 1]
-def remove_repeatedPhraseWithSameMeaning(listKeywords):
-  finalList = listKeywords.copy()
-  moreThanOneWordINKeywordPhrase = find_moreThanOneWordINKeywordPhrase(listKeywords)
-  OneWordINKeywordPhrase = find_OneWordINKeywordPhrase(listKeywords)
-  for phrase in moreThanOneWordINKeywordPhrase:
-    stemFirstWord = stemmer.stem(phrase.split()[0])
-    for word in OneWordINKeywordPhrase:
-      stemSingleWord = stemmer.stem(word)
-      if stemFirstWord == stemSingleWord:
-        try:
-            finalList.remove(word)
-        except ValueError:
-            print(word,finalList)
-  return finalList
-def remove_keysInDictWithSameMeaning(dictKeywords):
-  listFilteredKeywords =remove_repeatedPhraseWithSameMeaning(list(dictKeywords.keys()))
-  finalDict = {}
-  for key in dictKeywords:
-    if key in listFilteredKeywords:
-      finalDict[key] = dictKeywords[key]
-  return finalDict
+# def find_moreThanOneWordINKeywordPhrase(listKeywords):
+#   return [phrase for phrase in listKeywords if len(phrase.split()) > 1]
+# def find_OneWordINKeywordPhrase(listKeywords):
+#   return  [phrase for phrase in listKeywords if len(phrase.split()) == 1]
+# def remove_repeatedPhraseWithSameMeaning(listKeywords):
+#   finalList = listKeywords.copy()
+#   moreThanOneWordINKeywordPhrase = find_moreThanOneWordINKeywordPhrase(listKeywords)
+#   OneWordINKeywordPhrase = find_OneWordINKeywordPhrase(listKeywords)
+#   for phrase in moreThanOneWordINKeywordPhrase:
+#     stemFirstWord = stemmer.stem(phrase.split()[0])
+#     for word in OneWordINKeywordPhrase:
+#       stemSingleWord = stemmer.stem(word)
+#       if stemFirstWord == stemSingleWord:
+#         try:
+#             finalList.remove(word)
+#         except ValueError:
+#             print(word,phrase)
+#             print(stemSingleWord)
+#             print(stemSingleWord in finalList)
+#             print(word in finalList)
+#             print(word,finalList)
+#   return finalList
+# def remove_keysInDictWithSameMeaning(dictKeywords):
+#   listFilteredKeywords =remove_repeatedPhraseWithSameMeaning(list(dictKeywords.keys()))
+#   finalDict = {}
+#   for key in dictKeywords:
+#     if key in listFilteredKeywords:
+#       finalDict[key] = dictKeywords[key]
+#   return finalDict
+def removeRepeatedSkills(df:pd.DataFrame):
+    df['countSkillWords'] = df['Skill'].str.split().str.len()
+    df = df.sort_values(by='countSkillWords')
+    df['Skill'] = df['Skill'].str.replace(r'\s{2,}', ' ', regex=True)
+    listInd = []
+    for ind, row in df.iterrows():
+        stemskill = stemmer.stem(row['Skill'])
+        Dfsearch = df[df['Skill'].str.contains(stemskill, case=False, na=False)]
+        for i, rowSearch in Dfsearch.iterrows():
+            if ind != i:
+                if rowSearch['countSkillWords'] > row['countSkillWords']:
+                    targetword = ' '.join(rowSearch['Skill'].split()[:row['countSkillWords']])
+                    if stemmer.stem(targetword) == stemskill:
+                        listInd.append(ind)
+                        break
+    df = df.drop(listInd, axis=0)
+    df = df.drop('countSkillWords',axis=1)
+    return df
+
+
 def create_comparison_table(resume, job_description, skills):
     dict_resume_keywords = {}
     dict_job_description_keywords = {}
@@ -55,9 +79,9 @@ def create_comparison_table(resume, job_description, skills):
         if len(all_findings_in_job_description) > 0:
             dict_job_description_keywords[word] = len(all_findings_in_job_description)
             dict_resume_keywords[word] = len(all_findings_in_resume)
-    return remove_keysInDictWithSameMeaning(dict_resume_keywords), remove_keysInDictWithSameMeaning(
-        dict_job_description_keywords)
-    # return dict_resume_keywords, dict_job_description_keywords
+    # return remove_keysInDictWithSameMeaning(dict_resume_keywords), remove_keysInDictWithSameMeaning(
+    #     dict_job_description_keywords)
+    return dict_resume_keywords, dict_job_description_keywords
 
 
 def find_keywordFrequency(resume, job_description,soft_skills,hard_Skills):
@@ -79,14 +103,17 @@ def find_keywordFrequency(resume, job_description,soft_skills,hard_Skills):
         "Resume": dict_resume_hard_Skills_keywords.values(),
         "Job Description": dict_job_description_hard_Skills_keywords.values()
     })
-    df_softskills['Score'] = df_softskills.apply(lambda row: 1 - (
+    filtered_softskills = removeRepeatedSkills(df_softskills)
+    filtered_hardskills = removeRepeatedSkills(df_hardskills)
+
+    filtered_softskills['Score'] = filtered_softskills.apply(lambda row: 1 - (
                 abs(min(row['Resume'], row['Job Description']) - row['Job Description']) / row['Job Description']),
                                                  axis=1)
-    df_hardskills['Score'] = df_hardskills.apply(lambda row: 1 - (
+    filtered_hardskills['Score'] = filtered_hardskills.apply(lambda row: 1 - (
                 abs(min(row['Resume'], row['Job Description']) - row['Job Description']) / row['Job Description']),
                                                  axis=1)
-    final_score = round(((df_softskills['Score'].mean() + df_hardskills['Score'].mean()) / 2) * 100, 2)
-    return df_softskills.sort_values(by="Job Description", ascending=False), df_hardskills.sort_values(
+    final_score = round(((filtered_softskills['Score'].mean() + filtered_hardskills['Score'].mean()) / 2) * 100, 2)
+    return filtered_softskills.sort_values(by="Job Description", ascending=False), filtered_hardskills.sort_values(
         by="Job Description", ascending=False), final_score
 
 resume= '''Moji Shaban
@@ -232,12 +259,13 @@ to non-technical audiences.
 
 
 # '''
-# import os,json
-# with open(os.path.join("jsonDataBase", 'hard_Skills.json'), "r") as f:
-#     hard_Skills = json.load(f)
-# with open(os.path.join("jsonDataBase", 'soft_Skills.json'), "r") as f:
-#     soft_Skills = json.load(f)
-# soft, hard, score = find_keywordFrequency(resume, job_description,soft_Skills,hard_Skills)
+import os,json
+with open(os.path.join("jsonDataBase", 'hard_Skills.json'), "r") as f:
+    hard_Skills = json.load(f)
+with open(os.path.join("jsonDataBase", 'soft_Skills.json'), "r") as f:
+    soft_Skills = json.load(f)
+
+soft, hard, score = find_keywordFrequency(resume, resume,soft_Skills,hard_Skills)
 # print('Soft skills')
 # print(soft)
 # print('------------------------------------------------------------------')

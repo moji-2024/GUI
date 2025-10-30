@@ -4,6 +4,7 @@ from tkinter import messagebox as mb
 from tkinter import filedialog as fd
 from functools import partial
 import find_keywords_in_job_description
+import re
 import json
 from SQL_DataBase import sqlDB
 from datetime import datetime
@@ -262,32 +263,23 @@ def getBiggestRow_and_colIndex(root,):
     biggistRow = max(childWidget.grid_info()["row"] for childWidget in childWidgetsOfFoldChangeWin)
     biggistCol = max(childWidget.grid_info()["column"] for childWidget in childWidgetsOfFoldChangeWin)
     return biggistCol,biggistRow
+def pasteStrInTk_entry(entry,insertText):
+    entry.delete(0,END)
+    entry.config(fg='Black')
+    entry.insert(0,insertText)
 def create_menuBtns_in_frount_of_EntryWidgets(root,entrywidgets:list,menueBtnText:list,DictFieldValues):
-    def paste(entry,insertText):
-        entry.delete(0,END)
-        entry.config(fg='Black')
-        entry.insert(0,insertText)
+    ListMenuBtnsAndMenuwidget = []
+
     for i, entry in enumerate(entrywidgets):
         col, row = getRow_and_Col_from_widget(entry)
         dictKeyFuncs = {}
         for key in DictFieldValues[menueBtnText[i]]:
             if key:
-                dictKeyFuncs[key] = (paste,entry,key)
-        create_menu_drop_down(root, column=col+1, row=row, text=menueBtnText[i],
+                dictKeyFuncs[key] = (pasteStrInTk_entry,entry,key)
+        menu_button, menu_widget = create_menu_drop_down(root, column=col+1, row=row, text=menueBtnText[i],
                               dictionary=dictKeyFuncs)
-def Write_Or_UpdatejsonUniqueFileds(dictFieldValues:dict):
-    try:
-        with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
-            dictUniqueFields = json.load(f)
-        for field,value in dictFieldValues.items():
-            if value not in dictUniqueFields[field]:
-                dictUniqueFields[field].append(value)
-    except:
-        dictUniqueFields = dict()
-        for field,value in dictFieldValues.items():
-            dictUniqueFields[field] = [value,]
-    with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "w") as f:
-        json.dump(dictUniqueFields, f, indent=4)
+        ListMenuBtnsAndMenuwidget.append((menu_button, menu_widget))
+    return ListMenuBtnsAndMenuwidget
 
 def changeOutputFlag(outputFlagBool,widget,FalseText,TrueText):
     if outputFlagBool.get() == False:
@@ -304,7 +296,7 @@ def check_ComparativeOperatorInTuple(listStrElements):
             return True
     return False
 def searchEntryValidation(label_,entry_):
-    list_labels = ['id_', 'Job Title', 'Position Type', 'Company Name', 'Employer Name', 'Score']
+    # list_labels = ['id_', 'Job Title', 'Position Type', 'Company Name', 'Employer Name', 'Score']
     listElements = entry_.get().split(',')
     if label_ == 'id_':
         if all([ele.strip().isnumeric() for ele in listElements]):
@@ -370,10 +362,54 @@ def showHelp(root,text):
     helpText.pack(fill="both", expand=True)
     helpText.configure(state='disabled')
     helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
+def deleteCommandFromMenu(menu_,AllowMenuEntries:list):
+    '''
+    delete commands which are not allowed
+    Returns:
+    menu_
+    '''
+    lastIndex = menu_.index("end")
+    if lastIndex:
+        for i in range(menu_.index("end") + 1):  # menu.index("end") gives last index
+            item_type = menu_.type(i)
+            if item_type != 'separator':
+                commandName = menu_.entrycget(i, 'label')
+                if commandName not in AllowMenuEntries:
+                    menu_.delete(i)
+                    deleteCommandFromMenu(menu_, AllowMenuEntries)
+                    break
+        if menu_.type(lastIndex) == 'separator':
+            menu_.delete(lastIndex)
+    return menu_
+def addCommandToMenu(menu_widget,AllowMenuEntries,Tk_entry):
+    labels = [menu_widget.entrycget(i, "label")
+              for i in range(menu_widget.index("end") + 1)
+              if menu_widget.type(i) != "separator"]
+    for AllowMenuEntry in AllowMenuEntries:
+        if (AllowMenuEntry not in labels) and (AllowMenuEntry != ''):
+            currentFunc = partial(pasteStrInTk_entry, Tk_entry,AllowMenuEntry)
+            menu_widget.add_command(label=AllowMenuEntry, background='Black', foreground='red',
+                                    command=currentFunc)
+            menu_widget.add_separator()
+def updateMenu(ListMenuBtnsAndMenuwidget,dictUniqueMetaData,Tk_entries=None):
+    for i, Tuple in enumerate(ListMenuBtnsAndMenuwidget):
+        menuBtn, menu_ = Tuple[0], Tuple[1]
+        menuBtnName = menuBtn.cget('text')
+        AllowMenuEntries = dictUniqueMetaData[menuBtnName]
+        if Tk_entries:
+            addCommandToMenu(menu_, AllowMenuEntries, Tk_entries[i])
+        else:
+            deleteCommandFromMenu(menu_, AllowMenuEntries)
+
+
 def Extraction_and_deleteInformationPage(root,resumeText,jobDescriptionText,cursorListBoxSelected,DB_resultSetPrimaryKey,ResListBox):
     # this page help to extract resume & job Description Text as well as metadata as a csv file. Also delete recoreded Data from database.
-    DictData = {KeyValue.split(':')[0].strip(): KeyValue.split(':')[1].strip() for KeyValue in
-                ResListBox.get(cursorListBoxSelected).split(',')}
+    DictData = {
+        key.strip(): value.strip()
+        for key, value in (
+            rowItem.split(':', 1) for rowItem in ResListBox.get(cursorListBoxSelected).split(';')
+        )
+    }
     FileName = '_'.join([name if name != '_' else '' for name in [DictData['JobTitle'],DictData['CompanyName']]])
     def ExtractMetadata():
         outputDIR = fd.askdirectory(title='Select Output Directory')
@@ -382,10 +418,15 @@ def Extraction_and_deleteInformationPage(root,resumeText,jobDescriptionText,curs
             mb.showinfo('Done')
     def DeleteRecord():
         ResListBox.delete(cursorListBoxSelected)
-        sqlDB.delete('JobInfo','MojiDB',id_=DB_resultSetPrimaryKey)
+        sqlDB.delete('JobInfo','MojiDB',id_=DictData['id_'])
+        # Update menus in main page
+        dictUniqueMetaData = createDictJobMetaDataWithDistinctValues(MenuNamesInFrontEntries)
+        updateMenu(ListMenuBtnsAndMenuwidget,dictUniqueMetaData)
+        # destroy extra win
         if not ResListBox.get(0,END):
             root.master.destroy()
         root.destroy()
+
     def ExtractText(text:str,fileName):
         outputDIR = fd.askdirectory(title='Select Output Directory')
         if outputDIR:
@@ -406,12 +447,19 @@ def topMost(win_root,Btn):
         Btn.config(bg='Red')
     else:
         Btn.config(bg='Green')
-def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,jobDescriptionText=None,cursorListBoxSelected=None,DB_resultSetPrimaryKey=None,ResListBox=None,extractFlag=False):
-
+def displayHardSkills_and_SoftSkills(root,score,hard_df,soft_df,resumeText=None,jobDescriptionText=None,cursorListBoxSelected=None,DB_resultSetPrimaryKey=None,ResListBox=None,extractFlag=False,insertedRowId=None):
+    def DeleteRecord(DBTableRowID):
+        sqlDB.delete('JobInfo','MojiDB',id_=DBTableRowID)
+        ComparisonWin.destroy()
+        dictUniqueMetaData = createDictJobMetaDataWithDistinctValues(MenuNamesInFrontEntries)
+        updateMenu(ListMenuBtnsAndMenuwidget, dictUniqueMetaData,)
     # create win
     ComparisonWin = create_top_window(root_win=root, title='Compare your resume with Job description',
                                       geometry='800x350+400+100',
                                       width=False, height=False, GrabFlag=False)
+    if insertedRowId:
+        Button(ComparisonWin, text='Delete Record', bg='Black', fg='Red',
+               command=lambda: DeleteRecord(insertedRowId)).pack(side=TOP, anchor='ne')
     if extractFlag:
         Extraction_and_deleteInformationPage(ComparisonWin,resumeText,jobDescriptionText,cursorListBoxSelected,DB_resultSetPrimaryKey,ResListBox)
 
@@ -447,8 +495,6 @@ def EnterPortionResultsDetailsInListBox(root,results):
         if IntSelected:
             # res: [(row1),(row2),...]
             index = IntSelected[0]
-            gottenItemOfResListBox = ResListBox.get(index)
-            DB_resultSetPrimaryKey = gottenItemOfResListBox.split(',')[0].split(':')[1].strip()
             resumeText = res[index][allFields.index('Resume')]
             jobDescriptionText = res[index][allFields.index('jobDescription')]
             score = res[index][allFields.index('Score')]
@@ -456,7 +502,7 @@ def EnterPortionResultsDetailsInListBox(root,results):
             soft_SkillsJson = res[index][allFields.index('SoftSkillTable')]
             SoftSkillTable = find_keywords_in_job_description.pd.read_json(soft_SkillsJson)
             hardSkillTable = find_keywords_in_job_description.pd.read_json(hard_SkillsJson)
-            displayHardSkills_and_SoftSkills(resultWin,score,hardSkillTable,SoftSkillTable,resumeText,jobDescriptionText,cursorListBoxSelected=index,DB_resultSetPrimaryKey=DB_resultSetPrimaryKey,ResListBox=ResListBox,extractFlag=True)
+            displayHardSkills_and_SoftSkills(resultWin,score,hardSkillTable,SoftSkillTable,resumeText,jobDescriptionText,cursorListBoxSelected=index,ResListBox=ResListBox,extractFlag=True)
         else:
             mb.showerror('IntSelected Error','App can not find cursor Selected from ListBox')
 
@@ -471,12 +517,17 @@ def EnterPortionResultsDetailsInListBox(root,results):
     ResListBoxHorizontal_scrollbar.pack(side="bottom", fill="x")
     ResListBox.pack()
     for res in results[0]:
-        ResListBox.insert(END,', '.join([f'{allFields[i]}: {res[i]}' if res[i] else f'{allFields[i]}: _' for i in resultIndexes]))
+        ResListBox.insert(END,'; '.join([f'{allFields[i]}: {res[i]}' if res[i] else f'{allFields[i]}: _' for i in resultIndexes]))
     ResListBox.bind('<<ListboxSelect>>',lambda event: handleSelected(event,results[0],ResListBox))
 def updateJsonFile(listStrSkills:list,previosSkills:list,jsonFileName:str):
-    skillSet = [skill.strip() for skill in listStrSkills if (skill not in previosSkills) and (skill.isspace() == False)] + previosSkills
+    skillSet = [skill.strip() for skill in listStrSkills if (skill not in previosSkills) and (skill.isspace() == False) and (skill != '')] + previosSkills
     with open(os.path.join(JsonDataBasePath, jsonFileName), "w") as f:
         json.dump(skillSet, f, indent=4)
+def createDictJobMetaDataWithDistinctValues(JobMetaDataFields):
+    DictJobMetaDataWithDistinctValues ={}
+    for JobMetaData in JobMetaDataFields:
+        DictJobMetaDataWithDistinctValues[JobMetaData] = sqlDB.getDistinctCol('MojiDB', 'JobInfo', JobMetaData)
+    return DictJobMetaDataWithDistinctValues
 # '-------------------------------main functions---------------------------'
 def ScanPage(labelsFromMainPage,entriesFromMainPage):
     # get date & time
@@ -489,18 +540,23 @@ def ScanPage(labelsFromMainPage,entriesFromMainPage):
                                                                                          jobDescriptionText,
                                                                                          soft_Skills,
                                                                                          hard_Skills)
-        displayHardSkills_and_SoftSkills(MainRootWin, score, hard_df, soft_df)
 
         #convert tables as json string
         jsonHard_df=hard_df.to_json()
         jsonSoft_df=soft_df.to_json()
+        # validate entriesFromMainPage
+        for entry in entriesFromMainPage:
+            if ';' in entry.get():
+                mb.showerror('Entries error','Entries can not contain colons (;)')
+                return
+
         # create Dict of Field:Values of main page entries
         dictFieldValues = {
-            label_: entry.get().title() if entry.cget("fg") == 'Black' else ''
+            label_: re.sub(r' ,',', ',re.sub(r'\s{2,}', ' ', entry.get())).title() if entry.cget("fg") == 'Black' else ''
             for label_, entry in zip(labelsFromMainPage, entriesFromMainPage)
         }
         # update DB
-        sqlDB.insert(
+        rowId = sqlDB.insert(
             'JobInfo',
             'MojiDB',
             SoftSkillTable=jsonSoft_df,
@@ -513,17 +569,16 @@ def ScanPage(labelsFromMainPage,entriesFromMainPage):
         )
         # delete text in resume text-area
         resumeTextWidget.delete(0.0, END)
-        # Write_Or_Update json UniqueFile
-        Write_Or_UpdatejsonUniqueFileds(dictFieldValues)
-        # create menu buttons in front of entries in main page
-        with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
-            dictUniqueFields = json.load(f)
-            create_menuBtns_in_frount_of_EntryWidgets(BottomBottomFramInRootWin, entriesFromMainPage,
-                                                  labelsFromMainPage,
-                                                  dictUniqueFields)
+        # create dictFieldValues with distinct values
+        dictUniqueMetaData = createDictJobMetaDataWithDistinctValues(labelsFromMainPage)
+        # update menu buttons in front of entries in main page
+        updateMenu(ListMenuBtnsAndMenuwidget, dictUniqueMetaData,entriesFromMainPage)
+
+        # Display result to user
+        displayHardSkills_and_SoftSkills(MainRootWin, score, hard_df, soft_df,insertedRowId=rowId)
     else:
         mb.showwarning('Empty Text Area', 'Both resume and Job descriptions must be filled out')
-def SearchPage():
+def SearchPage(labelsFromMainPage):
     HELP_TEXT = """
     🔍 How to Use the Search Tool
 
@@ -582,8 +637,8 @@ def SearchPage():
     containFlagBool = BooleanVar()
     list_labelsInSearchPage = ['id_', 'Job Title', 'Position Type', 'Company Name', 'Employer Name','Score']
     if sqlDB.is_tableNotEmpty('MojiDB', 'JobInfo'):
-        with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
-            dictUniqueFields = json.load(f)
+
+        DictJobMetaData = createDictJobMetaDataWithDistinctValues(labelsFromMainPage)
         # create window, labels_Entries, Menus, Buttons
         searchWin = create_top_window(MainRootWin, title='Search', geometry='')
 
@@ -595,7 +650,7 @@ def SearchPage():
         listKeysAccesptByDB_and_DictInMenu = removewhiteSpaceInListElements(list_labelsInSearchPage)
         create_menuBtns_in_frount_of_EntryWidgets(searchWin, EntriesListInSearchWin[1:-1],
                                                   listKeysAccesptByDB_and_DictInMenu[1:-1],
-                                                  dictUniqueFields)
+                                                  DictJobMetaData)
         _, biggistRowUntilNow = getBiggestRow_and_colIndex(searchWin)
         Button(searchWin,
                text='Search Commit',
@@ -636,6 +691,7 @@ def Add_SkillPage(hard_Skills:list,soft_Skills:list):
                     updateJsonFile(listStrSkills, soft_Skills, 'soft_Skills.json')
                 else:
                     updateJsonFile(listStrSkills, hard_Skills, 'hard_Skills.json')
+                mb.showinfo('Done')
             if Add_SkillPageDestroyFlag:
                 Add_SkillWin.destroy()
     # create window, labels_Entries, Buttons
@@ -701,9 +757,7 @@ with open(os.path.join(JsonDataBasePath, 'hard_Skills.json'), "r") as f:
     hard_Skills = json.load(f)
 with open(os.path.join(JsonDataBasePath, 'soft_Skills.json'), "r") as f:
     soft_Skills = json.load(f)
-if os.path.exists(os.path.join(JsonDataBasePath, 'Uniques.json')):
-    with open(os.path.join(JsonDataBasePath, 'Uniques.json'), "r") as f:
-        dictUniqueFields = json.load(f)
+
 sqlDB.table_maker(
     'JobInfo',
     'MojiDB',
@@ -717,6 +771,9 @@ sqlDB.table_maker(
     'PositionType VARCHAR(60)',
     'CompanyName VARCHAR(120)',
     'EmployerName VARCHAR(120)')
+JobRelatedLabelsInMainPage = ['Job Title','Position Type','Company Name','Employer Name']
+MenuNamesInFrontEntries = removewhiteSpaceInListElements(JobRelatedLabelsInMainPage)
+DictJobMetaData = createDictJobMetaDataWithDistinctValues(MenuNamesInFrontEntries)
 # '-----------------------create main MainRootWin------------------------------'
 MainRootWin = create_top_window(title='Scan Job for Keywords', geometry='', flag_topLevel=False)
 # '-------------------------------initialization---------------------------'
@@ -787,22 +844,23 @@ Tips
 - Use the metadata fields to build your own application history database.
 '''
 
-# '-------------------------------memu---------------------------'
-Functions_menu_but, menu_Functions = create_menu_drop_down(TopFramInRootWin,
-                                                        {'Search': (SearchPage,),'Add Skill':(Add_SkillPage,hard_Skills,soft_Skills), },
-                                                        text='Functions', column=0,fg='Blue')
+
 # '-------------------------------list-box--------------------------'
 # '-------------------------------labels & Entries & scrollbars---------------------------'
-JobRelatedLabelsInMainPage = ['Job Title','Position Type','Company Name','Employer Name']
+
 EntriesListInBottomBottomFramInRootWin = createLabelsEntriesScrulbarsIn_a_page(
     BottomBottomFramInRootWin,JobRelatedLabelsInMainPage,
 ['Data analyst','Entry-Level','Npower','Someone name: Alex'],startGridRow=0)
-MenuNamesInFrontEntries = removewhiteSpaceInListElements(JobRelatedLabelsInMainPage)
+
 try:
-    create_menuBtns_in_frount_of_EntryWidgets(BottomBottomFramInRootWin, EntriesListInBottomBottomFramInRootWin, MenuNamesInFrontEntries,
-                                                  dictUniqueFields)
+    ListMenuBtnsAndMenuwidget = create_menuBtns_in_frount_of_EntryWidgets(BottomBottomFramInRootWin, EntriesListInBottomBottomFramInRootWin, MenuNamesInFrontEntries,
+                                                  DictJobMetaData)
 except NameError:
     pass
+# '-------------------------------memu---------------------------'
+Functions_menu_but, menu_Functions = create_menu_drop_down(TopFramInRootWin,
+                                                        {'Search': (SearchPage,MenuNamesInFrontEntries),'Add Skill':(Add_SkillPage,hard_Skills,soft_Skills), },
+                                                        text='Functions', column=0,fg='Blue')
 # '-------------------------------buttons---------------------------'
 Button(BottomFramInRootWin, text='Scan', font=('arial', 14),bg='green', command=lambda:ScanPage(MenuNamesInFrontEntries,EntriesListInBottomBottomFramInRootWin)).pack(side=BOTTOM)
 Button(TopFramInRootWin, text='Main Page Help', font=('arial', 14),bg='green', command=lambda:showHelp(MainRootWin,MainPageHelpText)).grid(row=0,column=1,sticky='E')
