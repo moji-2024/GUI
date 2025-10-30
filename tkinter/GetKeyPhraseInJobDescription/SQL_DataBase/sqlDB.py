@@ -448,7 +448,14 @@ def view(table_name, db, sort_by=None,related_col='and',filter_kind='', **col_va
 
     return result, columns
 
-
+def getDistinctCol(db, table_name,col):
+    conn, cursor = make_connection(db)
+    sql_command = f'SELECT DISTINCT {col} FROM {table_name}'
+    # print(sql_command)  # Debugging line to see the generated SQL command
+    cursor.execute(sql_command)
+    result = [Tuple[0] for Tuple in cursor.fetchall()]
+    conn.close()
+    return result
 
 def search(table_name, db,related_col='and', **col_values):
     """
