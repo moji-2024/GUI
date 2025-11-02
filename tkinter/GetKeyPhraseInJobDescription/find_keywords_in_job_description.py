@@ -259,13 +259,13 @@ to non-technical audiences.
 
 
 # '''
-import os,json
-with open(os.path.join("jsonDataBase", 'hard_Skills.json'), "r") as f:
-    hard_Skills = json.load(f)
-with open(os.path.join("jsonDataBase", 'soft_Skills.json'), "r") as f:
-    soft_Skills = json.load(f)
+# import os,json
+# with open(os.path.join("jsonDataBase", 'hard_Skills.json'), "r") as f:
+#     hard_Skills = json.load(f)
+# with open(os.path.join("jsonDataBase", 'soft_Skills.json'), "r") as f:
+#     soft_Skills = json.load(f)
 
-soft, hard, score = find_keywordFrequency(resume, resume,soft_Skills,hard_Skills)
+# soft, hard, score = find_keywordFrequency(resume, resume,soft_Skills,hard_Skills)
 # print('Soft skills')
 # print(soft)
 # print('------------------------------------------------------------------')

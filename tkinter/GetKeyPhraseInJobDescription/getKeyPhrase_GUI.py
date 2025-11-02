@@ -17,21 +17,22 @@ def resource_path(relative_path: str) -> str:
     # PyInstaller sets sys.frozen = True when your script is running
     # inside a bundled app (both --onefile and --onedir).
     if getattr(sys, 'frozen', False):
-
         # If it's --onefile, PyInstaller extracts everything into a
         # random temp folder (_MEI12345) and sets sys._MEIPASS.
         # If it's --onedir, there is no _MEIPASS, so we fall back to
         # the folder where the exe lives (sys.executable).
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
-
     else:
         # If you're just running the script normally (not frozen),
         # use the directory where your .py file is located.
         base_path = os.path.dirname(os.path.abspath('.'))
-
+        # base_path = os.path.dirname(os.path.abspath(__file__))
     # Build a full absolute path to your resource file
     return os.path.join(base_path, relative_path)
-JsonDataBasePath = resource_path('GetKeyPhraseInJobDescription/jsonDataBase')
+# # create debug txt file
+JsonDataBasePath = resource_path('GetKeyPhraseInJobDescription\jsonDataBase')
+# with open(r"D:\debugDIR\debug_JsonDataBasePath.txt", "w") as debug:
+#     debug.write(JsonDataBasePath)
 # print(JsonDataBasePath)
 # print(__file__)
 # '-------------------------------building functions---------------------------'
@@ -362,28 +363,40 @@ def showHelp(root,text):
     helpText.pack(fill="both", expand=True)
     helpText.configure(state='disabled')
     helpWin.bind("<FocusOut>", lambda event: helpWin.destroy())
+def numMenuIndexes(menu_widget):
+    menuIndexes = menu_widget.index("end")
+    if menuIndexes:
+        return menuIndexes + 1
+    else:
+        return 0
 def deleteCommandFromMenu(menu_,AllowMenuEntries:list):
     '''
     delete commands which are not allowed
     Returns:
     menu_
     '''
-    lastIndex = menu_.index("end")
-    if lastIndex:
-        for i in range(menu_.index("end") + 1):  # menu.index("end") gives last index
-            item_type = menu_.type(i)
+    i = 0
+    lastIndInMenu = numMenuIndexes(menu_)
+    while i < lastIndInMenu:
+        item_type = menu_.type(i)
+        if item_type:
             if item_type != 'separator':
                 commandName = menu_.entrycget(i, 'label')
                 if commandName not in AllowMenuEntries:
                     menu_.delete(i)
-                    deleteCommandFromMenu(menu_, AllowMenuEntries)
-                    break
-        if menu_.type(lastIndex) == 'separator':
-            menu_.delete(lastIndex)
+                    if menu_.type(i) == 'separator':
+                        menu_.delete(i)
+                else:
+                    i += 1
+            else:
+                i += 1
+        else:
+            break
     return menu_
+
 def addCommandToMenu(menu_widget,AllowMenuEntries,Tk_entry):
-    labels = [menu_widget.entrycget(i, "label")
-              for i in range(menu_widget.index("end") + 1)
+    menuIndexNumber = numMenuIndexes(menu_widget)
+    labels = [menu_widget.entrycget(i, "label") for i in range(menuIndexNumber)
               if menu_widget.type(i) != "separator"]
     for AllowMenuEntry in AllowMenuEntries:
         if (AllowMenuEntry not in labels) and (AllowMenuEntry != ''):
