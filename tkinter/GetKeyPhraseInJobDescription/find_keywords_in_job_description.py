@@ -1,6 +1,7 @@
 from nltk.stem import SnowballStemmer
 import pandas as pd
 import re
+from fuzzywuzzy import fuzz
 stemmer = SnowballStemmer("english")
 
 def find_keyword(key, list_skills):
@@ -10,7 +11,6 @@ def find_keyword(key, list_skills):
         if word == key.lower():
             list_found.append(word)
     return list_found
-
 
 def removeRepeatedSkills(df:pd.DataFrame):
     df['countSkillWords'] = df['Skill'].str.split().str.len()
@@ -32,17 +32,28 @@ def removeRepeatedSkills(df:pd.DataFrame):
     return df
 
 
+def all_findings_Validator(phrase,l):
+    finalList = []
+    for w in l:
+        if len(w) <= len(phrase):
+            finalList.append(w)
+        else:
+            if fuzz.ratio(w, phrase) > 79:
+                finalList.append(w)
+    return finalList
 def create_comparison_table(resume, job_description, skills):
     dict_resume_keywords = {}
     dict_job_description_keywords = {}
     for word in skills:
+        all_findings_in_job_description = []
         if len(word) > 3:
             stem_of_word = stemmer.stem(word)
+
             all_findings_in_job_description = re.findall(rf"\b\w*{stem_of_word}\w*\b", job_description,
                                                          flags=re.IGNORECASE)
-            all_findings_in_job_description = [w for w in all_findings_in_job_description if len(w) <= len(word)]
+            all_findings_in_job_description = all_findings_Validator(word,all_findings_in_job_description)
             all_findings_in_resume = re.findall(rf"\b\w*{stem_of_word}\w*\b", resume, flags=re.IGNORECASE)
-            all_findings_in_resume = [w for w in all_findings_in_resume if len(w) <= len(word)]
+            all_findings_in_resume = all_findings_Validator(word,all_findings_in_resume)
         else:
             all_findings_in_job_description = re.findall(fr'\b{word}\b', job_description, flags=re.IGNORECASE)
             all_findings_in_resume = re.findall(fr'\b{word}\b', resume, flags=re.IGNORECASE)
