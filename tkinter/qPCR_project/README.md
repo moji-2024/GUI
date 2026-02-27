@@ -21,3 +21,5 @@ This tool helps researchers process qPCR results with reference genes, calculate
    pyinstaller --onedir --windowed --add-data "SampleData;qPCR_project/SampleData" qPCR_GUI.py
 
 
+## Demo Video
+[Watch the demo on YouTube]([https://www.youtube.com/watch?v=XXXXXXXXXXX](https://youtu.be/z_P2oK4p2Fk))
