@@ -23,3 +23,4 @@ This tool helps researchers process qPCR results with reference genes, calculate
 
 ## Demo Video
 [Watch the demo on YouTube](https://youtu.be/z_P2oK4p2Fk)
+[Summary_info](../../results/trimmed_report/Trim_stats.csv)
